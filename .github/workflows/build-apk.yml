@@ -1,0 +1,76 @@
+name: Build APK
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      - name: Analyze project
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Set up release signing
+        run: |
+          if [ -n "${{ secrets.STORE_FILE_B64 }}" ]; then
+            echo "${{ secrets.STORE_FILE_B64 }}" | base64 -d > release.keystore
+            echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/key.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+            echo "storeFile=../../release.keystore" >> android/key.properties
+          else
+            keytool -genkey -v -keystore release.keystore \
+              -alias release -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=AdminToolbox, OU=Dev, O=AdminToolbox, L=City, ST=State, C=US"
+            echo "storePassword=android" > android/key.properties
+            echo "keyPassword=android" >> android/key.properties
+            echo "keyAlias=release" >> android/key.properties
+            echo "storeFile=../../release.keystore" >> android/key.properties
+          fi
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-toolbox-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-toolbox-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+          make_latest: true

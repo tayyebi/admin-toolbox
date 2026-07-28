@@ -61,8 +61,8 @@ class TerminalScreen extends ConsumerWidget {
                   const Text('admin@host:~\$ ', style: TextStyle(fontFamily: 'JetBrainsMono', color: AppTheme.successGreen, fontSize: 13)),
                   const Expanded(
                     child: TextField(
-                      style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: AppTheme.textPrimary),
-                      decoration: const InputDecoration(
+                      style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: AppTheme.textPrimary),
+                      decoration: InputDecoration(
                         hintText: 'Enter command...',
                         hintStyle: TextStyle(color: AppTheme.textMuted),
                         border: InputBorder.none,

@@ -32,9 +32,9 @@ class FileBrowserScreen extends ConsumerWidget {
             color: AppTheme.bgSurface,
             child: const Row(
               children: [
-                const Icon(Icons.folder_open, color: AppTheme.textMuted, size: 16),
-                const SizedBox(width: 8),
-                const Expanded(
+                Icon(Icons.folder_open, color: AppTheme.textMuted, size: 16),
+                SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     '/home/admin/',
                     style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: AppTheme.textPrimary),

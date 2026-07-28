@@ -29,10 +29,10 @@ class IncidentsScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.check_circle_outline, size: 64, color: AppTheme.textMuted),
-                  const SizedBox(height: 16),
-                  const Text('No incidents', style: TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 8),
-                  const Text('Track operational incidents here.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                  SizedBox(height: 16),
+                  Text('No incidents', style: TextStyle(color: AppTheme.textSecondary)),
+                  SizedBox(height: 8),
+                  Text('Track operational incidents here.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
                 ],
               ),
             );

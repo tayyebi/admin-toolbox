@@ -456,7 +456,7 @@ command -v docker >/dev/null 2>&1 && docker stats --no-stream --format "table {{
 
     metrics.add(Metric(id: uuid.v4(), hostId: hostId, collectorId: 'docker_available', value: '1', unit: '', timestamp: now));
 
-    if (sections.length >= 1) {
+    if (sections.isNotEmpty) {
       final containerLines = sections[0].split('\n').skip(1);
       var count = 0;
       for (final line in containerLines) {

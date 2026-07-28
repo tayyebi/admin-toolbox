@@ -22,10 +22,10 @@ class AutomationScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.play_circle_outline, size: 64, color: AppTheme.textMuted),
-                  const SizedBox(height: 16),
-                  const Text('No automations created', style: TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 8),
-                  const Text('Create reusable operational procedures\nthat can be executed across hosts.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted), textAlign: TextAlign.center),
+                  SizedBox(height: 16),
+                  Text('No automations created', style: TextStyle(color: AppTheme.textSecondary)),
+                  SizedBox(height: 8),
+                  Text('Create reusable operational procedures\nthat can be executed across hosts.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted), textAlign: TextAlign.center),
                 ],
               ),
             );

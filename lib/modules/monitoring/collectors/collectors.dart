@@ -1,6 +1,5 @@
 import 'package:uuid/uuid.dart';
 import '../../../data/models/metric.dart';
-import '../../../data/models/connection.dart';
 import '../../../data/transport/transport.dart';
 import '../../../core/utils/logger.dart';
 
@@ -250,7 +249,6 @@ class DiskCollector extends MetricCollector {
       final parts = line.trim().split(RegExp(r'\s+'));
       if (parts.length < 6) continue;
 
-      final mount = parts[5];
       final total = int.tryParse(parts[1]) ?? 0;
       final used = int.tryParse(parts[2]) ?? 0;
       final free = int.tryParse(parts[3]) ?? 0;

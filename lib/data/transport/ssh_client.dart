@@ -162,9 +162,10 @@ class SshTransportSession implements TransportSession {
     if (_client == null) throw StateError('SSH session not connected');
 
     final session = await _client!.shell(
-      pty: SSHPtyConfig(
-        cols: 120,
-        rows: 40,
+      pty: const SSHPtyConfig(
+        type: 'xterm-256color',
+        width: 120,
+        height: 40,
       ),
     );
 
@@ -257,11 +258,4 @@ class SftpTransportSession implements FileManagementTransport {
   }
 }
 
-abstract class FileManagementTransport implements TransportSession {
-  Future<void> uploadFile(String localPath, String remotePath);
-  Future<List<int>> downloadFile(String remotePath);
-  Future<List<FileEntry>> listDirectory(String path);
-  Future<void> createDirectory(String path);
-  Future<void> deleteFile(String path);
-  Future<void> renameFile(String oldPath, String newPath);
-}
+abstract class FileManagementTransport implements TransportSession {}

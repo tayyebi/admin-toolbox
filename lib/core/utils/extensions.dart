@@ -31,7 +31,11 @@ extension DateTimeExtensions on DateTime {
 String formatBytes(int bytes, {int decimals = 1}) {
   if (bytes <= 0) return '0 B';
   const suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-  final i = (bytes == 0 ? 0 : (bytes.toString().length - 1) ~/ 3).clamp(0, suffixes.length - 1);
+  int i = 0;
+  while (bytes >= 1024) {
+    bytes = bytes ~/ 1024;
+    i++;
+  }
   return '${(bytes / 1.power(i * 3)).toStringAsFixed(decimals)} ${suffixes[i]}';
 }
 

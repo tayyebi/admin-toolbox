@@ -13,7 +13,6 @@ class EncryptionService {
   static const _saltStorageKey = 'master_encryption_salt';
 
   encrypt.Key? _masterKey;
-  encrypt.IV? _masterIv;
 
   Future<bool> isMasterKeySet() async {
     final key = await _secureStorage.read(key: _keyStorageKey);
@@ -28,7 +27,6 @@ class EncryptionService {
     await _secureStorage.write(key: _saltStorageKey, value: salt.base64);
 
     _masterKey = derivedKey;
-    _masterIv = encrypt.IV.fromSecureRandom(16);
   }
 
   Future<bool> verifyMasterPassword(String password) async {
@@ -86,7 +84,7 @@ class EncryptionService {
     final encryptedBytes = combined.sublist(16);
 
     final encrypter = encrypt.Encrypter(encrypt.AES(key, mode: encrypt.AESMode.cbc));
-    return encrypter.decryptBytes(encrypt.Encrypted(Uint8List.fromList(encryptedBytes)), iv: iv);
+    return utf8.decode(encrypter.decryptBytes(encrypt.Encrypted(Uint8List.fromList(encryptedBytes)), iv: iv));
   }
 
   Future<String> hashValue(String value) async {

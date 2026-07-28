@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../providers/providers.dart';
-import '../../widgets/status_badge.dart';
-import '../../widgets/metric_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -172,7 +170,7 @@ class DashboardScreen extends ConsumerWidget {
               onTap: () {},
             ),
             _QuickActionChip(
-              icon: Icons.command,
+              icon: Icons.keyboard_command_key,
               label: 'Commands',
               onTap: () {},
             ),

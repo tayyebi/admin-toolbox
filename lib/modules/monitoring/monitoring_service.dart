@@ -3,6 +3,7 @@ import '../../data/models/host.dart';
 import '../../data/models/identity.dart';
 import '../../data/models/metric.dart';
 import '../../data/transport/transport.dart';
+import '../../data/transport/ssh_client.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/identity_repository.dart';
 import '../../data/repositories/metric_repository.dart';
@@ -47,6 +48,7 @@ class MonitoringService {
       for (final host in hosts) {
         await collectHostMetrics(host).catchError((e) {
           logWarning('Failed to collect metrics for ${host.name}: $e');
+          return <Metric>[];
         });
       }
     } catch (e) {

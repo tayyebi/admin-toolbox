@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/group.dart';
-import '../../../data/repositories/group_repository.dart';
 import '../../../providers/providers.dart';
 import 'package:uuid/uuid.dart';
 

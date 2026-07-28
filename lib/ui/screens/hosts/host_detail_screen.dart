@@ -73,7 +73,7 @@ class HostDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _buildSystemInfo(host),
                 const SizedBox(height: 16),
-                _buildActions(context, host),
+                _buildActions(context, ref, host),
               ],
             ),
           );
@@ -253,7 +253,7 @@ class HostDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActions(BuildContext context, dynamic host) {
+  Widget _buildActions(BuildContext context, WidgetRef ref, dynamic host) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

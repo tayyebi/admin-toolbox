@@ -1,9 +1,8 @@
-import 'package:uuid/uuid.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../core/database/database.dart';
 import '../models/metric.dart';
 
 class MetricRepository {
-  final _uuid = const Uuid();
 
   Future<List<Metric>> getForHost(String hostId, String collectorId, {int limit = 100}) async {
     final db = await AppDatabase.instance.database;

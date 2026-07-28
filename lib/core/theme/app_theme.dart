@@ -23,7 +23,6 @@ class AppTheme {
     scaffoldBackground: bgDark,
     appBarBackground: bgDark,
     dialogBackground: bgCard,
-    bottomAppBarBackground: bgCard,
     tabBarStyle: FlexTabBarStyle.forAppBar,
     fontFamily: 'JetBrainsMono',
     useMaterial3: true,

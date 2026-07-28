@@ -49,6 +49,30 @@ class Command {
     );
   }
 
+  Command copyWith({
+    String? id,
+    String? name,
+    String? command,
+    String? description,
+    String? category,
+    List<String>? variables,
+    bool? favorite,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Command(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      command: command ?? this.command,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      variables: variables ?? this.variables,
+      favorite: favorite ?? this.favorite,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   static List<String>? _parseList(String? str) {
     if (str == null || str.isEmpty) return null;
     return str.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();

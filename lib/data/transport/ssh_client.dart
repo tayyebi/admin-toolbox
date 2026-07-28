@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:dio/dio.dart';
 import '../../core/utils/logger.dart';
 import 'transport.dart';
 
@@ -43,7 +42,7 @@ class SshTransportSession implements TransportSession {
         username: config.username,
         onPasswordRequest: config.password != null ? () => config.password! : null,
         identities: config.privateKey != null
-            ? [SSHKeyPair.fromPem(config.privateKey!, config.passphrase)]
+            ? SSHKeyPair.fromPem(config.privateKey!, config.passphrase)
             : [],
       );
 
@@ -65,17 +64,23 @@ class SshTransportSession implements TransportSession {
     final stopwatch = Stopwatch()..start();
 
     try {
-      final result = await _client!.execute(
-        command,
-        timeout: timeout ?? const Duration(seconds: 30),
-      );
+      final result = await _client!.execute(command);
 
       stopwatch.stop();
 
+      final stdoutBytes = <int>[];
+      await for (final chunk in result.stdout) {
+        stdoutBytes.addAll(chunk);
+      }
+      final stderrBytes = <int>[];
+      await for (final chunk in result.stderr) {
+        stderrBytes.addAll(chunk);
+      }
+
       return CommandResult(
         exitCode: result.exitCode ?? -1,
-        stdout: utf8.decode(result.stdout),
-        stderr: utf8.decode(result.stderr),
+        stdout: utf8.decode(stdoutBytes),
+        stderr: utf8.decode(stderrBytes),
         duration: stopwatch.elapsed,
       );
     } catch (e) {
@@ -158,21 +163,20 @@ class SshTransportSession implements TransportSession {
 
     final session = await _client!.shell(
       pty: SSHPtyConfig(
-        term: 'xterm-256color',
-        width: 120,
-        height: 40,
+        cols: 120,
+        rows: 40,
       ),
     );
 
     final controller = StreamController<String>();
 
-    session.stdout.transform(utf8.decoder).listen(
+    session.stdout.map((bytes) => utf8.decode(bytes)).listen(
       (data) => controller.add(data),
       onError: controller.addError,
       onDone: controller.close,
     );
 
-    session.stderr.transform(utf8.decoder).listen(
+    session.stderr.map((bytes) => utf8.decode(bytes)).listen(
       (data) => controller.add(data),
     );
 
@@ -190,19 +194,38 @@ class SshTransportSession implements TransportSession {
 
 class SftpTransportSession implements FileManagementTransport {
   SshTransportSession? _sshSession;
-  Dio? _dio;
 
   @override
   TransportType get type => TransportType.sftp;
+
+  @override
+  Future<bool> get isConnected async => _sshSession != null && await _sshSession!.isConnected;
 
   Future<void> connectFromSsh(SshTransportSession sshSession) async {
     _sshSession = sshSession;
   }
 
   @override
+  Future<CommandResult> execute(String command, {Duration? timeout}) async {
+    if (_sshSession == null) throw StateError('SFTP session not initialized');
+    return _sshSession!.execute(command, timeout: timeout);
+  }
+
+  @override
+  Future<Stream<String>> createShell() async {
+    if (_sshSession == null) throw StateError('SFTP session not initialized');
+    return _sshSession!.createShell();
+  }
+
+  @override
+  Future<void> disconnect() async {
+    await _sshSession?.disconnect();
+  }
+
+  @override
   Future<void> uploadFile(String localPath, String remotePath) async {
     if (_sshSession == null) throw StateError('SFTP session not initialized');
-    await _sshSession!.execute('cat > "$remotePath" < '); // Stub
+    await _sshSession!.execute('cat > "$remotePath" < ');
   }
 
   @override
@@ -241,12 +264,4 @@ abstract class FileManagementTransport implements TransportSession {
   Future<void> createDirectory(String path);
   Future<void> deleteFile(String path);
   Future<void> renameFile(String oldPath, String newPath);
-}
-
-class SshKeyPair {
-  static SSHKeyPairIdentity fromPem(String pem, [String? passphrase]) {
-    return SSHKeyPairIdentity(
-      SSHKeyPair.fromPem(pem, passphrase: passphrase),
-    );
-  }
 }

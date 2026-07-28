@@ -266,7 +266,7 @@ class DashboardScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(32),
               child: Column(
                 children: [
-                  Icon(Icons.computer, size: 48, color: AppTheme.textMuted),
+                  const Icon(Icons.computer, size: 48, color: AppTheme.textMuted),
                   const SizedBox(height: 16),
                   const Text('No hosts added yet', style: TextStyle(color: AppTheme.textSecondary)),
                   const SizedBox(height: 8),
@@ -293,7 +293,7 @@ class DashboardScreen extends ConsumerWidget {
       loading: () => const Card(
         child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
       ),
-      error: (e, _) => Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Error: $e'))),
+      error: (e, _) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: $e'))),
     );
   }
 }

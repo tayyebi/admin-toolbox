@@ -53,7 +53,7 @@ class _HostsListScreenState extends ConsumerState<HostsListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.computer, size: 64, color: AppTheme.textMuted),
+                        const Icon(Icons.computer, size: 64, color: AppTheme.textMuted),
                         const SizedBox(height: 16),
                         Text(
                           _searchQuery.isEmpty ? 'No hosts configured' : 'No hosts match "$_searchQuery"',

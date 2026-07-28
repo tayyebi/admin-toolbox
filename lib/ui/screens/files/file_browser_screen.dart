@@ -30,11 +30,11 @@ class FileBrowserScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(12),
             color: AppTheme.bgSurface,
-            child: Row(
+            child: const Row(
               children: [
                 const Icon(Icons.folder_open, color: AppTheme.textMuted, size: 16),
                 const SizedBox(width: 8),
-                Expanded(
+                const Expanded(
                   child: Text(
                     '/home/admin/',
                     style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: AppTheme.textPrimary),
@@ -46,7 +46,7 @@ class FileBrowserScreen extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(8),
-              children: [
+              children: const [
                 _FileItem(icon: Icons.folder, name: '..', isDirectory: true),
                 _FileItem(icon: Icons.folder, name: 'Documents', isDirectory: true),
                 _FileItem(icon: Icons.folder, name: 'Downloads', isDirectory: true),

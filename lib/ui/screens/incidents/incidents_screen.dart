@@ -24,7 +24,7 @@ class IncidentsScreen extends ConsumerWidget {
       body: incidentsAsync.when(
         data: (incidents) {
           if (incidents.isEmpty) {
-            return Center(
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

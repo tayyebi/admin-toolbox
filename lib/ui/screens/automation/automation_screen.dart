@@ -17,7 +17,7 @@ class AutomationScreen extends ConsumerWidget {
       body: automationsAsync.when(
         data: (automations) {
           if (automations.isEmpty) {
-            return Center(
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

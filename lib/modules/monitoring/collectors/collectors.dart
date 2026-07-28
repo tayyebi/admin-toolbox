@@ -64,9 +64,9 @@ uptime 2>/dev/null | awk '{print \$NF}' || echo ""
     final lines = rawOutput.trim().split('\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
-    if (lines.length >= 1) {
+    if (lines.isNotEmpty) {
       final cpuParts = lines[0].trim().split(RegExp(r'\s+'));
       if (cpuParts.length >= 8) {
         final user = int.tryParse(cpuParts[1]) ?? 0;
@@ -195,7 +195,7 @@ class MemoryCollector extends MetricCollector {
     final lines = rawOutput.trim().split('\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
     for (final line in lines) {
       final parts = line.trim().split(RegExp(r'\s+'));
@@ -243,7 +243,7 @@ class DiskCollector extends MetricCollector {
     final lines = rawOutput.trim().split('\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
     for (final line in lines) {
       final parts = line.trim().split(RegExp(r'\s+'));
@@ -288,7 +288,7 @@ curl -s --max-time 5 ifconfig.me 2>/dev/null || echo ""
     final sections = rawOutput.trim().split('\n\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
     if (sections.isNotEmpty) {
       final lines = sections[0].split('\n');
@@ -352,7 +352,7 @@ grep -c zombie /proc/*/status 2>/dev/null || echo "0"
     final sections = rawOutput.trim().split('\n\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
     if (sections.isNotEmpty) {
       final count = int.tryParse(sections[0].trim()) ?? 0;
@@ -408,9 +408,9 @@ command -v systemctl >/dev/null 2>&1 && systemctl list-units --type=service --no
     final lines = rawOutput.trim().split('\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
-    if (lines.length >= 1) {
+    if (lines.isNotEmpty) {
       final failed = int.tryParse(lines[0].trim()) ?? 0;
       metrics.add(Metric(id: uuid.v4(), hostId: hostId, collectorId: 'svc_failed', value: failed.toString(), unit: 'services', timestamp: now));
     }
@@ -447,7 +447,7 @@ command -v docker >/dev/null 2>&1 && docker stats --no-stream --format "table {{
     final sections = rawOutput.trim().split('\n\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
     if (sections.isEmpty || sections[0].contains('no_docker')) {
       metrics.add(Metric(id: uuid.v4(), hostId: hostId, collectorId: 'docker_available', value: '0', unit: '', timestamp: now));
@@ -494,9 +494,9 @@ hostname 2>/dev/null
     final lines = rawOutput.trim().split('\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
-    if (lines.length >= 1) {
+    if (lines.isNotEmpty) {
       metrics.add(Metric(id: uuid.v4(), hostId: hostId, collectorId: 'sys_kernel', value: lines[0].trim(), unit: '', timestamp: now));
     }
 
@@ -533,9 +533,9 @@ ss -tlnp 2>/dev/null | tail -n +2 | wc -l || netstat -tlnp 2>/dev/null | tail -n
     final lines = rawOutput.trim().split('\n');
     final metrics = <Metric>[];
     final now = DateTime.now();
-    final uuid = const Uuid();
+    const uuid = Uuid();
 
-    if (lines.length >= 1) {
+    if (lines.isNotEmpty) {
       final failedLogins = lines[0].trim();
       metrics.add(Metric(id: uuid.v4(), hostId: hostId, collectorId: 'sec_failed_logins', value: failedLogins, unit: 'attempts', timestamp: now));
     }

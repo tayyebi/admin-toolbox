@@ -145,7 +145,7 @@ class HostDetailScreen extends ConsumerWidget {
                 _InfoChip(label: host.connectionType?.toUpperCase() ?? 'SSH'),
                 if (host.groupId != null) ...[
                   const SizedBox(width: 8),
-                  _InfoChip(label: 'Group'),
+                  const _InfoChip(label: 'Group'),
                 ],
               ],
             ),

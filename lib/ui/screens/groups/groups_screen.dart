@@ -29,7 +29,7 @@ class GroupsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.folder_open, size: 64, color: AppTheme.textMuted),
+                  const Icon(Icons.folder_open, size: 64, color: AppTheme.textMuted),
                   const SizedBox(height: 16),
                   const Text('No groups created', style: TextStyle(color: AppTheme.textSecondary)),
                   const SizedBox(height: 16),

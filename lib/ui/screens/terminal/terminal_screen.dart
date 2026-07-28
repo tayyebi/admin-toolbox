@@ -59,7 +59,7 @@ class TerminalScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   const Text('admin@host:~\$ ', style: TextStyle(fontFamily: 'JetBrainsMono', color: AppTheme.successGreen, fontSize: 13)),
-                  Expanded(
+                  const Expanded(
                     child: TextField(
                       style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: AppTheme.textPrimary),
                       decoration: const InputDecoration(

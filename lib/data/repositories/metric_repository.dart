@@ -63,9 +63,20 @@ class MetricRepository {
     );
   }
 
-  Future<void> deleteOlderThan(Duration retention) async {
+  /// Deletes metrics recorded before [cutoff]. Returns the number of rows
+  /// removed, so the caller can report and log the purge.
+  Future<int> deleteOlderThan(DateTime cutoff) async {
     final db = await AppDatabase.instance.database;
-    final cutoff = DateTime.now().subtract(retention).toIso8601String();
-    await db.delete('metrics', where: 'timestamp < ?', whereArgs: [cutoff]);
+    return db.delete(
+      'metrics',
+      where: 'timestamp < ?',
+      whereArgs: [cutoff.toIso8601String()],
+    );
+  }
+
+  Future<int> count() async {
+    final db = await AppDatabase.instance.database;
+    final result = await db.rawQuery('SELECT COUNT(*) AS count FROM metrics');
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 }

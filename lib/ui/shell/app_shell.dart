@@ -1,83 +1,110 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
+
+import '../../core/security/app_lock_controller.dart';
+import '../../core/security/secure_display.dart';
+import '../../core/settings/app_settings.dart';
 import '../../providers/providers.dart';
+import '../routes.dart';
 
 class AppShell extends ConsumerStatefulWidget {
-  final Widget child;
-
   const AppShell({super.key, required this.child});
+
+  final Widget child;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
-  int _selectedIndex = 0;
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_applySecureFlag());
+  }
 
-  static const _routes = [
-    '/dashboard',
-    '/hosts',
-    '/groups',
-    '/monitoring',
-    '/settings',
-  ];
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final lock = ref.read(appLockProvider.notifier);
+
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        lock.markBackgrounded();
+      case AppLifecycleState.resumed:
+        lock.applyAutoLock(ref.read(autoLockDelayProvider));
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
+  Future<void> _applySecureFlag() {
+    return SecureDisplay.setSecure(ref.read(settingsProvider).blockScreenshots);
+  }
+
+  int _indexForLocation(String location) {
+    final index = shellRoutes.indexWhere(
+      (route) => location == route || location.startsWith('$route/'),
+    );
+    return index < 0 ? 0 : index;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final currentRoute = GoRouterState.of(context).uri.path;
-
-    final routeIndex = _routes.indexOf(currentRoute);
-    if (routeIndex != -1 && routeIndex != _selectedIndex) {
-      _selectedIndex = routeIndex;
-    }
-
+    final location = GoRouterState.of(context).matchedLocation;
+    final selectedIndex = _indexForLocation(location);
     final activeAlerts = ref.watch(activeAlertCountProvider);
+    final alertCount = activeAlerts.valueOrNull ?? 0;
 
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          context.go(_routes[index]);
+          if (index == selectedIndex) return;
+          context.go(shellRoutes[index]);
         },
-        backgroundColor: AppTheme.bgCard,
-        indicatorColor: AppTheme.primaryBlue.withValues(alpha: 0.15),
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard, color: AppTheme.primaryBlue),
+            selectedIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.computer_outlined),
-            selectedIcon: Icon(Icons.computer, color: AppTheme.primaryBlue),
+            icon: Icon(Icons.dns_outlined),
+            selectedIcon: Icon(Icons.dns),
             label: 'Hosts',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.folder_outlined),
-            selectedIcon: Icon(Icons.folder, color: AppTheme.primaryBlue),
-            label: 'Groups',
+            icon: Icon(Icons.key_outlined),
+            selectedIcon: Icon(Icons.key),
+            label: 'Vault',
           ),
           NavigationDestination(
-            icon: activeAlerts.when(
-              data: (count) => count > 0
-                  ? Badge(
-                      label: Text('$count'),
-                      child: const Icon(Icons.monitor_heart_outlined),
-                    )
-                  : const Icon(Icons.monitor_heart_outlined),
-              loading: () => const Icon(Icons.monitor_heart_outlined),
-              error: (_, __) => const Icon(Icons.monitor_heart_outlined),
-            ),
-            selectedIcon: const Icon(Icons.monitor_heart, color: AppTheme.primaryBlue),
+            icon: alertCount > 0
+                ? Badge(
+                    label: Text('$alertCount'),
+                    child: const Icon(Icons.monitor_heart_outlined),
+                  )
+                : const Icon(Icons.monitor_heart_outlined),
+            selectedIcon: const Icon(Icons.monitor_heart),
             label: 'Monitor',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings, color: AppTheme.primaryBlue),
-            label: 'Settings',
+            icon: Icon(Icons.more_horiz_outlined),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'More',
           ),
         ],
       ),

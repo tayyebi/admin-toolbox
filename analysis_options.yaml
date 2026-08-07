@@ -1,7 +1,17 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    invalid_annotation_target: ignore
+
 linter:
   rules:
+    avoid_print: true
     prefer_const_constructors: true
     prefer_const_declarations: true
-    avoid_print: false
+    prefer_final_locals: true
+    unawaited_futures: true
+    require_trailing_commas: true
+    avoid_empty_else: true
+    cancel_subscriptions: true
+    close_sinks: true

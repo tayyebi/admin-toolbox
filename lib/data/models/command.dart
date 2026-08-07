@@ -1,3 +1,5 @@
+import '../../core/utils/json_codec.dart';
+
 class Command {
   final String id;
   final String name;
@@ -28,7 +30,7 @@ class Command {
       'command': command,
       'description': description,
       'category': category,
-      'variables': variables?.join(','),
+      'variables': encodeStringList(variables),
       'favorite': favorite ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -42,7 +44,7 @@ class Command {
       command: map['command'] as String,
       description: map['description'] as String?,
       category: map['category'] as String?,
-      variables: _parseList(map['variables'] as String?),
+      variables: decodeStringList(map['variables'] as String?),
       favorite: (map['favorite'] as int?) == 1,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
@@ -73,16 +75,21 @@ class Command {
     );
   }
 
-  static List<String>? _parseList(String? str) {
-    if (str == null || str.isEmpty) return null;
-    return str.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-  }
-
   String interpolate(Map<String, String> vars) {
     var result = command;
     for (final entry in vars.entries) {
       result = result.replaceAll('{{${entry.key}}}', entry.value);
     }
     return result;
+  }
+
+  /// Placeholder names actually present in [command], regardless of what the
+  /// `variables` column claims — the two drift when a command is edited.
+  static List<String> placeholdersIn(String command) {
+    return RegExp(r'\{\{(\w+)\}\}')
+        .allMatches(command)
+        .map((m) => m.group(1)!)
+        .toSet()
+        .toList();
   }
 }

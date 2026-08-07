@@ -1,28 +1,42 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
+
+import '../utils/logger.dart';
 
 class AppDatabase {
   AppDatabase._();
   static final AppDatabase instance = AppDatabase._();
 
+  /// v1 → v2 adds the SSH key vault columns, known-hosts pinning, automation
+  /// run history, and the audit hash chain.
+  static const int schemaVersion = 2;
+
   static Database? _db;
 
+  /// Overridable so tests can run against an in-memory FFI database.
+  static DatabaseFactory? factoryOverride;
+  static String? pathOverride;
+
   Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await initialize();
-    return _db!;
+    return _db ??= await initialize();
   }
 
   Future<Database> initialize() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'admin_toolbox.db');
+    if (_db != null) return _db!;
 
-    return openDatabase(
+    final factory = factoryOverride ?? databaseFactory;
+    final path = pathOverride ?? join(await factory.getDatabasesPath(), 'admin_toolbox.db');
+
+    _db = await factory.openDatabase(
       path,
-      version: 1,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
+      options: OpenDatabaseOptions(
+        version: schemaVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+        onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      ),
     );
+    return _db!;
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -69,8 +83,31 @@ class AppDatabase {
         private_key TEXT,
         passphrase TEXT,
         certificate TEXT,
+        key_type TEXT,
+        public_key TEXT,
+        fingerprint TEXT,
+        comment TEXT,
+        key_bits INTEGER,
+        last_used_at TEXT,
+        crypto_version INTEGER NOT NULL DEFAULT 2,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Host key pinning. A row appears on first connect (trust on first use);
+    // a later mismatch means the server key changed and the connection is
+    // refused until the user resolves it.
+    await db.execute('''
+      CREATE TABLE known_hosts (
+        id TEXT PRIMARY KEY,
+        hostname TEXT NOT NULL,
+        port INTEGER NOT NULL DEFAULT 22,
+        key_type TEXT NOT NULL,
+        fingerprint TEXT NOT NULL,
+        first_seen TEXT NOT NULL,
+        last_seen TEXT NOT NULL,
+        UNIQUE (hostname, port)
       )
     ''');
 
@@ -154,6 +191,21 @@ class AppDatabase {
     ''');
 
     await db.execute('''
+      CREATE TABLE automation_runs (
+        id TEXT PRIMARY KEY,
+        automation_id TEXT NOT NULL,
+        automation_name TEXT NOT NULL,
+        host_ids TEXT NOT NULL,
+        parameters TEXT,
+        status TEXT NOT NULL DEFAULT 'running',
+        dry_run INTEGER NOT NULL DEFAULT 0,
+        results TEXT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE commands (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -167,6 +219,9 @@ class AppDatabase {
       )
     ''');
 
+    // `prev_hash`/`entry_hash` chain each record to the one before it, so a
+    // deleted or edited row breaks verification. That is what makes the log
+    // tamper-evident rather than merely append-only by convention.
     await db.execute('''
       CREATE TABLE audit_log (
         id TEXT PRIMARY KEY,
@@ -176,7 +231,9 @@ class AppDatabase {
         host_id TEXT,
         details TEXT,
         user_id TEXT,
-        timestamp TEXT NOT NULL
+        timestamp TEXT NOT NULL,
+        prev_hash TEXT,
+        entry_hash TEXT
       )
     ''');
 
@@ -198,27 +255,96 @@ class AppDatabase {
       )
     ''');
 
-    await db.execute('''
-      CREATE INDEX idx_metrics_host ON metrics(host_id, collector_id, timestamp)
-    ''');
+    await _createIndexes(db);
+  }
 
-    await db.execute('''
-      CREATE INDEX idx_alerts_status ON alerts(status, host_id)
-    ''');
-
-    await db.execute('''
-      CREATE INDEX idx_audit_timestamp ON audit_log(timestamp)
-    ''');
+  Future<void> _createIndexes(Database db) async {
+    const statements = [
+      'CREATE INDEX IF NOT EXISTS idx_metrics_host ON metrics(host_id, collector_id, timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, host_id)',
+      'CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_id)',
+      'CREATE INDEX IF NOT EXISTS idx_hosts_identity ON hosts(identity_id)',
+      'CREATE INDEX IF NOT EXISTS idx_known_hosts_lookup ON known_hosts(hostname, port)',
+      'CREATE INDEX IF NOT EXISTS idx_runs_automation ON automation_runs(automation_id, started_at)',
+    ];
+    for (final statement in statements) {
+      await db.execute(statement);
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle future schema migrations here
+    logInfo('Migrating database from v$oldVersion to v$newVersion');
+
+    if (oldVersion < 2) {
+      // Existing identity rows were sealed with the v1 AES-CBC scheme. They
+      // keep crypto_version = 1 and are re-encrypted lazily on first unlock.
+      const identityColumns = {
+        'key_type': 'TEXT',
+        'public_key': 'TEXT',
+        'fingerprint': 'TEXT',
+        'comment': 'TEXT',
+        'key_bits': 'INTEGER',
+        'last_used_at': 'TEXT',
+        'crypto_version': 'INTEGER NOT NULL DEFAULT 1',
+      };
+      for (final entry in identityColumns.entries) {
+        await _addColumnIfMissing(db, 'identities', entry.key, entry.value);
+      }
+
+      await _addColumnIfMissing(db, 'audit_log', 'prev_hash', 'TEXT');
+      await _addColumnIfMissing(db, 'audit_log', 'entry_hash', 'TEXT');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS known_hosts (
+          id TEXT PRIMARY KEY,
+          hostname TEXT NOT NULL,
+          port INTEGER NOT NULL DEFAULT 22,
+          key_type TEXT NOT NULL,
+          fingerprint TEXT NOT NULL,
+          first_seen TEXT NOT NULL,
+          last_seen TEXT NOT NULL,
+          UNIQUE (hostname, port)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS automation_runs (
+          id TEXT PRIMARY KEY,
+          automation_id TEXT NOT NULL,
+          automation_name TEXT NOT NULL,
+          host_ids TEXT NOT NULL,
+          parameters TEXT,
+          status TEXT NOT NULL DEFAULT 'running',
+          dry_run INTEGER NOT NULL DEFAULT 0,
+          results TEXT,
+          started_at TEXT NOT NULL,
+          finished_at TEXT
+        )
+      ''');
+
+      await _createIndexes(db);
+    }
+  }
+
+  /// `ALTER TABLE ADD COLUMN` throws if the column exists, and SQLite has no
+  /// `IF NOT EXISTS` for it, so the table is inspected first. This keeps the
+  /// migration safe to re-run against a partially upgraded database.
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = columns.any((row) => row['name'] == column);
+    if (exists) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
   }
 
   Future<void> close() async {
-    if (_db != null) {
-      await _db!.close();
-      _db = null;
-    }
+    await _db?.close();
+    _db = null;
   }
 }

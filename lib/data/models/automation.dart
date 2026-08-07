@@ -1,3 +1,5 @@
+import '../../core/utils/json_codec.dart';
+
 class Automation {
   final String id;
   final String name;
@@ -33,7 +35,7 @@ class Automation {
       'name': name,
       'description': description,
       'category': category,
-      'parameters': _encodeMap(parameters),
+      'parameters': encodeStringMap(parameters),
       'steps': _encodeSteps(steps),
       'rollback_steps': rollbackSteps != null ? _encodeSteps(rollbackSteps!) : null,
       'validation': validation,
@@ -50,7 +52,7 @@ class Automation {
       name: map['name'] as String,
       description: map['description'] as String?,
       category: map['category'] as String?,
-      parameters: _decodeMap(map['parameters'] as String?),
+      parameters: decodeStringMap(map['parameters'] as String?),
       steps: _decodeSteps(map['steps'] as String?),
       rollbackSteps: _decodeSteps(map['rollback_steps'] as String?),
       validation: map['validation'] as String?,
@@ -91,42 +93,101 @@ class Automation {
     );
   }
 
-  static String _encodeMap(Map<String, String>? map) {
-    if (map == null) return '';
-    return map.entries.map((e) => '${e.key}=${e.value}').join(',');
-  }
-
-  static Map<String, String>? _decodeMap(String? str) {
-    if (str == null || str.isEmpty) return null;
-    final map = <String, String>{};
-    for (final pair in str.split(',')) {
-      final parts = pair.split('=');
-      if (parts.length == 2) {
-        map[parts[0].trim()] = parts[1].trim();
-      }
-    }
-    return map;
-  }
-
   static String _encodeSteps(List<AutomationStep> steps) {
-    return steps.map((s) => '${s.type}|${s.command}').join('\n');
+    return encodeObjectList(steps.map((s) => s.toJson()).toList());
   }
 
   static List<AutomationStep> _decodeSteps(String? str) {
-    if (str == null || str.isEmpty) return [];
-    return str.split('\n').map((line) {
-      final parts = line.split('|');
-      return AutomationStep(
-        type: parts.isNotEmpty ? parts[0] : 'command',
-        command: parts.length > 1 ? parts[1] : line,
-      );
-    }).toList();
+    if (str == null || str.isEmpty) return const [];
+
+    // Rows written before the JSON migration used `type|command` per line.
+    if (!str.trimLeft().startsWith('[')) {
+      return str
+          .split('\n')
+          .where((line) => line.trim().isNotEmpty)
+          .map((line) {
+            final separator = line.indexOf('|');
+            if (separator < 0) return AutomationStep(command: line);
+            return AutomationStep(
+              type: line.substring(0, separator),
+              command: line.substring(separator + 1),
+            );
+          })
+          .toList();
+    }
+
+    return decodeObjectList(str).map(AutomationStep.fromJson).toList();
   }
 }
 
+/// One step of a procedure.
 class AutomationStep {
-  final String type;
+  const AutomationStep({
+    required this.command,
+    this.type = 'command',
+    this.name,
+    this.continueOnFailure = false,
+    this.expectedExitCode = 0,
+    this.timeout = const Duration(seconds: 60),
+  });
+
   final String command;
 
-  const AutomationStep({required this.type, required this.command});
+  /// `command` today; reserved for `upload`, `check` and similar later.
+  final String type;
+
+  final String? name;
+
+  /// When false, a failing step aborts the run and triggers rollback.
+  final bool continueOnFailure;
+
+  final int expectedExitCode;
+  final Duration timeout;
+
+  AutomationStep copyWith({
+    String? command,
+    String? type,
+    String? name,
+    bool? continueOnFailure,
+    int? expectedExitCode,
+    Duration? timeout,
+  }) {
+    return AutomationStep(
+      command: command ?? this.command,
+      type: type ?? this.type,
+      name: name ?? this.name,
+      continueOnFailure: continueOnFailure ?? this.continueOnFailure,
+      expectedExitCode: expectedExitCode ?? this.expectedExitCode,
+      timeout: timeout ?? this.timeout,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'command': command,
+        if (name != null) 'name': name,
+        'continue_on_failure': continueOnFailure,
+        'expected_exit_code': expectedExitCode,
+        'timeout_seconds': timeout.inSeconds,
+      };
+
+  factory AutomationStep.fromJson(Map<String, dynamic> json) {
+    return AutomationStep(
+      command: json['command'] as String? ?? '',
+      type: json['type'] as String? ?? 'command',
+      name: json['name'] as String?,
+      continueOnFailure: json['continue_on_failure'] as bool? ?? false,
+      expectedExitCode: json['expected_exit_code'] as int? ?? 0,
+      timeout: Duration(seconds: json['timeout_seconds'] as int? ?? 60),
+    );
+  }
+
+  /// Substitutes `{{name}}` placeholders, matching `Command.interpolate`.
+  String interpolate(Map<String, String> variables) {
+    var result = command;
+    for (final entry in variables.entries) {
+      result = result.replaceAll('{{${entry.key}}}', entry.value);
+    }
+    return result;
+  }
 }

@@ -1,3 +1,5 @@
+import '../../core/utils/json_codec.dart';
+
 class Host {
   final String id;
   final String name;
@@ -78,14 +80,14 @@ class Host {
       'group_id': groupId,
       'identity_id': identityId,
       'connection_type': connectionType,
-      'tags': tags.join(','),
+      'tags': encodeStringList(tags),
       'notes': notes,
       'favorite': favorite ? 1 : 0,
-      'metadata': _encodeMap(metadata),
+      'metadata': encodeStringMap(metadata),
       'status': status,
       'last_seen': lastSeen?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
-      'updated_at': (updatedAt).toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
@@ -98,35 +100,20 @@ class Host {
       groupId: map['group_id'] as String?,
       identityId: map['identity_id'] as String?,
       connectionType: map['connection_type'] as String? ?? 'ssh',
-      tags: _parseTags(map['tags'] as String?),
+      tags: decodeStringList(map['tags'] as String?),
       notes: map['notes'] as String?,
       favorite: (map['favorite'] as int?) == 1,
-      metadata: _decodeMap(map['metadata'] as String?),
+      metadata: decodeStringMap(map['metadata'] as String?),
       status: map['status'] as String? ?? 'unknown',
-      lastSeen: map['last_seen'] != null ? DateTime.tryParse(map['last_seen'] as String) : null,
+      lastSeen: parseDateOrNull(map['last_seen']),
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
   }
 
-  static List<String> _parseTags(String? tagsStr) {
-    if (tagsStr == null || tagsStr.isEmpty) return [];
-    return tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
-  }
+  /// `user@hostname:port`, or `hostname:port` when no identity is attached.
+  String get endpoint => '$hostname:$port';
 
-  static String _encodeMap(Map<String, String> map) {
-    return map.entries.map((e) => '${e.key}=${e.value}').join(',');
-  }
-
-  static Map<String, String> _decodeMap(String? str) {
-    if (str == null || str.isEmpty) return {};
-    final map = <String, String>{};
-    for (final pair in str.split(',')) {
-      final parts = pair.split('=');
-      if (parts.length == 2) {
-        map[parts[0].trim()] = parts[1].trim();
-      }
-    }
-    return map;
-  }
+  @override
+  String toString() => 'Host(id: $id, name: $name, endpoint: $endpoint, status: $status)';
 }

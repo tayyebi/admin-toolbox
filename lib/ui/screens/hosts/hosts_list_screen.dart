@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../data/models/host.dart';
 import '../../../providers/providers.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/status_badge.dart';
 
 class HostsListScreen extends ConsumerStatefulWidget {
@@ -13,13 +17,19 @@ class HostsListScreen extends ConsumerStatefulWidget {
 }
 
 class _HostsListScreenState extends ConsumerState<HostsListScreen> {
-  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final hostsAsync = _searchQuery.isEmpty
-        ? ref.watch(hostsProvider)
-        : ref.watch(hostSearchProvider(_searchQuery));
+    final hostsAsync =
+        _query.isEmpty ? ref.watch(hostsProvider) : ref.watch(hostSearchProvider(_query));
 
     return Scaffold(
       appBar: AppBar(
@@ -27,7 +37,7 @@ class _HostsListScreenState extends ConsumerState<HostsListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: 'Add Host',
+            tooltip: 'Add host',
             onPressed: () => context.push('/hosts/new'),
           ),
         ],
@@ -35,57 +45,59 @@ class _HostsListScreenState extends ConsumerState<HostsListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search hosts...',
-                prefixIcon: Icon(Icons.search, size: 20),
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by name, hostname or tag',
+                prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
               ),
-              onChanged: (value) => setState(() => _searchQuery = value),
+              onChanged: (value) => setState(() => _query = value.trim()),
             ),
           ),
           Expanded(
             child: hostsAsync.when(
+              loading: () => const LoadingView(),
+              error: (error, _) => ErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(hostsProvider),
+              ),
               data: (hosts) {
                 if (hosts.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.computer, size: 64, color: AppTheme.textMuted),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isEmpty ? 'No hosts configured' : 'No hosts match "$_searchQuery"',
-                          style: const TextStyle(color: AppTheme.textSecondary),
-                        ),
-                        if (_searchQuery.isEmpty) ...[
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: () => context.push('/hosts/new'),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Add Host'),
-                          ),
-                        ],
-                      ],
-                    ),
+                  return EmptyState(
+                    icon: Icons.dns_outlined,
+                    title: _query.isEmpty ? 'No hosts yet' : 'No hosts match "$_query"',
+                    message: _query.isEmpty
+                        ? 'Add a server, attach a credential from the vault, '
+                            'and you can connect.'
+                        : null,
+                    actionLabel: _query.isEmpty ? 'Add host' : null,
+                    onAction: _query.isEmpty ? () => context.push('/hosts/new') : null,
                   );
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(hostsProvider),
+                  onRefresh: () async {
+                    ref.invalidate(hostsProvider);
+                    ref.invalidate(hostStatusCountsProvider);
+                  },
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
                     itemCount: hosts.length,
-                    itemBuilder: (context, index) {
-                      final host = hosts[index];
-                      return _HostCard(host: host);
-                    },
+                    itemBuilder: (context, index) => _HostCard(host: hosts[index]),
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
             ),
           ),
         ],
@@ -95,71 +107,93 @@ class _HostsListScreenState extends ConsumerState<HostsListScreen> {
 }
 
 class _HostCard extends ConsumerWidget {
-  final dynamic host;
-
   const _HostCard({required this.host});
+
+  final Host host;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = AppTheme.statusColor(host.status ?? 'unknown');
+    final colors = context.colors;
+    final statusColor = colors.status(host.status);
 
     return Card(
       child: InkWell(
         onTap: () => context.push('/hosts/${host.id}'),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.computer, color: statusColor),
+                child: Icon(Icons.dns_outlined, color: statusColor, size: 22),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      host.name ?? host.hostname,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      host.name,
+                      style: context.text.titleMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${host.hostname}:${host.port}',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      host.endpoint,
+                      style: AppTypography.monoSmall(colors.textMuted),
                     ),
-                    if ((host.tags as List?)?.isNotEmpty == true)
+                    if (host.identityId == null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.key_off_outlined, size: 12, color: colors.warning),
+                          const SizedBox(width: 4),
+                          Text(
+                            'No credential',
+                            style: context.text.labelSmall?.copyWith(color: colors.warning),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (host.tags.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: 6),
                         child: Wrap(
                           spacing: 4,
-                          children: (host.tags as List).map<Widget>((tag) => Container(
+                          runSpacing: 4,
+                          children: [
+                            for (final tag in host.tags)
+                              Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+                                  color: context.scheme.primary.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: Text('$tag', style: const TextStyle(fontSize: 10, color: AppTheme.primaryBlue)),
-                              )).toList(),
+                                child: Text(
+                                  tag,
+                                  style: context.text.labelSmall
+                                      ?.copyWith(color: context.scheme.primary),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  StatusBadge(status: host.status ?? 'unknown'),
-                  const SizedBox(height: 4),
-                  if (host.favorite == true)
-                    const Icon(Icons.star, size: 16, color: AppTheme.warningOrange),
+                  StatusBadge(status: host.status),
+                  const SizedBox(height: 6),
+                  if (host.favorite) Icon(Icons.star, size: 15, color: colors.warning),
                 ],
               ),
             ],

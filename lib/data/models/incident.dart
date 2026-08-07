@@ -1,3 +1,5 @@
+import '../../core/utils/json_codec.dart';
+
 class Incident {
   final String id;
   final String title;
@@ -32,8 +34,8 @@ class Incident {
       'description': description,
       'status': status,
       'severity': severity,
-      'affected_hosts': affectedHosts.join(','),
-      'timeline': timeline.map((e) => e.toJson()).join('\n\n'),
+      'affected_hosts': encodeStringList(affectedHosts),
+      'timeline': encodeObjectList(timeline.map((e) => e.toJson()).toList()),
       'resolution': resolution,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -48,12 +50,44 @@ class Incident {
       description: map['description'] as String?,
       status: map['status'] as String? ?? 'open',
       severity: map['severity'] as String? ?? 'medium',
-      affectedHosts: (map['affected_hosts'] as String?)?.split(',').where((h) => h.isNotEmpty).toList() ?? [],
-      timeline: [],
+      affectedHosts: decodeStringList(map['affected_hosts'] as String?),
+      timeline: decodeObjectList(map['timeline'] as String?)
+          .map(IncidentTimelineEntry.fromJson)
+          .toList(),
       resolution: map['resolution'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
-      resolvedAt: map['resolved_at'] != null ? DateTime.tryParse(map['resolved_at'] as String) : null,
+      resolvedAt: parseDateOrNull(map['resolved_at']),
+    );
+  }
+
+  bool get isOpen => status == 'open';
+
+  Incident copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? status,
+    String? severity,
+    List<String>? affectedHosts,
+    List<IncidentTimelineEntry>? timeline,
+    String? resolution,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? resolvedAt,
+  }) {
+    return Incident(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      status: status ?? this.status,
+      severity: severity ?? this.severity,
+      affectedHosts: affectedHosts ?? this.affectedHosts,
+      timeline: timeline ?? this.timeline,
+      resolution: resolution ?? this.resolution,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
     );
   }
 }
@@ -81,5 +115,15 @@ class IncidentTimelineEntry {
       'timestamp': timestamp.toIso8601String(),
       'user_id': userId,
     };
+  }
+
+  factory IncidentTimelineEntry.fromJson(Map<String, dynamic> json) {
+    return IncidentTimelineEntry(
+      id: json['id'] as String? ?? '',
+      action: json['action'] as String? ?? 'note',
+      description: json['description'] as String? ?? '',
+      timestamp: parseDateOrNull(json['timestamp']) ?? DateTime.now(),
+      userId: json['user_id'] as String?,
+    );
   }
 }

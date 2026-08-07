@@ -1,5 +1,10 @@
 *.iml
 *.lock
+# pubspec.lock belongs in version control for an application: without it every
+# CI build resolves dependencies afresh, so a transitive release can change the
+# artifact without a single line of code changing. Commit it after the next
+# `flutter pub get`.
+!pubspec.lock
 *.log
 *.pyc
 *.swp
@@ -29,7 +34,9 @@ test/*.jpeg
 coverage/
 android/key.properties
 android/local.properties
-android/release.keystore
+# CI writes the keystore to the repository root, so match it anywhere.
+*.keystore
+release.keystore
 secrets/
 *.env
 *.env.*

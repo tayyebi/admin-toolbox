@@ -147,8 +147,13 @@ docker run -d --name sshtest -p 2222:22 \
 
 ## CI
 
-`.github/workflows/build-apk.yml` runs formatting, analysis and tests, then
-builds a signed APK and App Bundle. Tag pushes (`v*`) publish a release.
+`.github/workflows/build-apk.yml` runs formatting, analysis and tests on every
+push and pull request.
+
+Artifacts are built only when there is something to install: a `v*` tag builds
+a signed APK and App Bundle and publishes a GitHub release. A manual run
+(Actions → CI → Run workflow) builds them on demand, which is the way to get a
+test build off a branch. Ordinary pushes to `main` stop after the checks.
 
 Signing secrets, if configured:
 

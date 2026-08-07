@@ -153,7 +153,11 @@ class AutomationEngine {
         ? 'cancelled'
         : (results.every((r) => r.succeeded) ? 'succeeded' : 'failed');
 
-    await _runs.finish(runId: runId, status: status, results: results);
+    await _runs.finish(
+      runId: runId,
+      status: status,
+      results: results.map((r) => r.toJson()).toList(),
+    );
     await _audit.log(
       action: dryRun ? 'automation_dry_run' : 'automation_run',
       entityType: 'automation',

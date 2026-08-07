@@ -13,7 +13,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../core/utils/logger.dart';
-import '../../../data/transport/connection_manager.dart';
 import '../../../data/transport/transport.dart';
 import '../../../providers/providers.dart';
 import '../../widgets/error_view.dart';

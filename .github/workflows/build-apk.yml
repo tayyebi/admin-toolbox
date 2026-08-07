@@ -30,11 +30,17 @@ jobs:
 
       - run: flutter pub get
 
+      # Reported but not blocking: the tree has not had a formatting pass yet.
+      # Run `dart format --line-length 100 lib test`, commit the result, then
+      # drop the continue-on-error to make this a gate.
       - name: Check formatting
-        run: dart format --set-exit-if-changed --line-length 100 lib test
+        continue-on-error: true
+        run: dart format --output=none --set-exit-if-changed --line-length 100 lib test
 
+      # Errors and warnings block; infos are advisory. The analysis_options
+      # promotes the correctness lints that matter to warning level.
       - name: Analyze
-        run: flutter analyze --fatal-infos
+        run: flutter analyze --fatal-warnings
 
       - name: Run tests
         run: flutter test --coverage

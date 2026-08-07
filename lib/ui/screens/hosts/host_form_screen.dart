@@ -6,7 +6,6 @@ import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/host.dart';
-import '../../../data/transport/connection_manager.dart';
 import '../../../data/transport/ssh_client.dart';
 import '../../../data/transport/transport.dart';
 import '../../../providers/providers.dart';

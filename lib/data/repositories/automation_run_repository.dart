@@ -4,7 +4,6 @@ import 'package:uuid/uuid.dart';
 import '../../core/database/database.dart';
 import '../../core/utils/json_codec.dart';
 import '../models/automation.dart';
-import '../../modules/automation/automation_engine.dart';
 
 /// A recorded execution of an automation.
 class AutomationRun {
@@ -81,17 +80,20 @@ class AutomationRunRepository {
     return id;
   }
 
+  /// [results] arrives already reduced to JSON-safe maps, so the data layer
+  /// does not have to import the engine's types — which would make the
+  /// dependency point the wrong way, and form a cycle.
   Future<void> finish({
     required String runId,
     required String status,
-    required List<HostRunResult> results,
+    required List<Map<String, dynamic>> results,
   }) async {
     final db = await AppDatabase.instance.database;
     await db.update(
       'automation_runs',
       {
         'status': status,
-        'results': encodeObjectList(results.map((r) => r.toJson()).toList()),
+        'results': encodeObjectList(results),
         'finished_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',

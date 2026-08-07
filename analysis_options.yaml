@@ -2,16 +2,33 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   errors:
-    invalid_annotation_target: ignore
+    # Correctness rules that should block a build, not just advise.
+    unawaited_futures: warning
+    cancel_subscriptions: warning
+    close_sinks: warning
+    avoid_print: warning
+  exclude:
+    - build/**
 
 linter:
   rules:
+    # Correctness.
     avoid_print: true
+    cancel_subscriptions: true
+    close_sinks: true
+    unawaited_futures: true
+    avoid_empty_else: true
+    avoid_slow_async_io: true
+    no_adjacent_strings_in_list: true
+    throw_in_finally: true
+
+    # Consistency.
     prefer_const_constructors: true
     prefer_const_declarations: true
     prefer_final_locals: true
-    unawaited_futures: true
-    require_trailing_commas: true
-    avoid_empty_else: true
-    cancel_subscriptions: true
-    close_sinks: true
+    directives_ordering: true
+
+    # Deliberately not enabled: `require_trailing_commas` and
+    # `always_specify_types` are style-only, produce very high volume on an
+    # existing codebase, and are better applied in one pass via
+    # `dart fix --apply` than enforced before that pass has happened.

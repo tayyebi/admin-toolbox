@@ -1,279 +1,342 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/extensions.dart';
+import '../../../data/models/alert.dart';
+import '../../../data/models/host.dart';
+import '../../../data/models/incident.dart';
 import '../../../providers/providers.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/status_badge.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hosts = ref.watch(hostsProvider);
-    final alerts = ref.watch(alertsProvider);
-    final incidents = ref.watch(incidentsProvider);
-    final statusCounts = ref.watch(hostStatusCountsProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: 'Add Host',
+            tooltip: 'Add host',
             onPressed: () => context.push('/hosts/new'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(hostsProvider);
-          ref.invalidate(alertsProvider);
-          ref.invalidate(incidentsProvider);
+          ref
+            ..invalidate(hostsProvider)
+            ..invalidate(alertsProvider)
+            ..invalidate(incidentsProvider)
+            ..invalidate(hostStatusCountsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildStatusOverview(statusCounts),
-            const SizedBox(height: 16),
-            _buildFleetStats(hosts),
-            const SizedBox(height: 16),
-            _buildQuickActions(context),
-            const SizedBox(height: 16),
-            _buildAlertsSection(alerts),
-            const SizedBox(height: 16),
-            _buildIncidentsSection(incidents),
-            const SizedBox(height: 16),
-            _buildRecentHosts(hosts),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: const [
+            _StatusOverview(),
+            SizedBox(height: 20),
+            _QuickActions(),
+            SizedBox(height: 20),
+            _AlertsSection(),
+            SizedBox(height: 20),
+            _IncidentsSection(),
+            SizedBox(height: 20),
+            _HostsSection(),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildStatusOverview(AsyncValue<Map<String, int>> statusCounts) {
-    return statusCounts.when(
-      data: (counts) {
-        final total = counts.values.fold(0, (a, b) => a + b);
-        final online = counts['online'] ?? 0;
-        final offline = counts['offline'] ?? 0;
-        final warning = counts['warning'] ?? 0;
+class _StatusOverview extends ConsumerWidget {
+  const _StatusOverview();
 
-        return Row(
-          children: [
-            Expanded(
-              child: _StatCard(
-                label: 'Total Hosts',
-                value: '$total',
-                icon: Icons.computer,
-                color: AppTheme.primaryBlue,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StatCard(
-                label: 'Online',
-                value: '$online',
-                icon: Icons.check_circle,
-                color: AppTheme.successGreen,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StatCard(
-                label: 'Warning',
-                value: '$warning',
-                icon: Icons.warning_amber,
-                color: AppTheme.warningOrange,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StatCard(
-                label: 'Offline',
-                value: '$offline',
-                icon: Icons.error,
-                color: AppTheme.dangerRed,
-              ),
-            ),
-          ],
-        ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1);
-      },
-      loading: () => const SizedBox(height: 80),
-      error: (e, _) => Text('Error: $e'),
-    );
-  }
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final counts = ref.watch(hostStatusCountsProvider);
+    final colors = context.colors;
 
-  Widget _buildFleetStats(AsyncValue<List<dynamic>> hosts) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Fleet Overview', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return counts.when(
+      loading: () => const SizedBox(height: 90, child: LoadingView()),
+      error: (error, _) => ErrorView(error: error, compact: true),
+      data: (data) {
+        final online = data['online'] ?? 0;
+        final offline = data['offline'] ?? 0;
+        final unknown = (data['unknown'] ?? 0) + (data['pending'] ?? 0);
+        final total = data.values.fold<int>(0, (sum, value) => sum + value);
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MiniStat(label: 'Avg CPU', value: '--'),
-                _MiniStat(label: 'Avg RAM', value: '--'),
-                _MiniStat(label: 'Alerts', value: '--'),
-                _MiniStat(label: 'Uptime', value: '--'),
+                Row(
+                  children: [
+                    Text('Fleet', style: context.text.titleMedium),
+                    const Spacer(),
+                    Text(
+                      total == 1 ? '1 host' : '$total hosts',
+                      style: context.text.bodySmall?.copyWith(color: colors.textMuted),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _Stat(value: online, label: 'Online', color: colors.success),
+                    _Stat(value: offline, label: 'Offline', color: colors.danger),
+                    _Stat(value: unknown, label: 'Unknown', color: colors.textMuted),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(delay: 200.ms, duration: 300.ms);
+          ),
+        );
+      },
+    );
   }
+}
 
-  Widget _buildQuickActions(BuildContext context) {
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label, required this.color});
+
+  final int value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text('$value', style: AppTypography.monoMetric(color)),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: context.text.labelSmall?.copyWith(color: context.colors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('Quick actions', style: context.text.titleMedium),
+        ),
+        Row(
           children: [
-            _QuickActionChip(
-              icon: Icons.terminal,
-              label: 'Terminal',
-              onTap: () => context.push('/hosts'),
+            _Action(
+              icon: Icons.add,
+              label: 'Add host',
+              onTap: () => context.push('/hosts/new'),
             ),
-            _QuickActionChip(
-              icon: Icons.folder_open,
-              label: 'Files',
-              onTap: () => context.push('/hosts'),
+            const SizedBox(width: 8),
+            _Action(
+              icon: Icons.key_outlined,
+              label: 'Vault',
+              onTap: () => context.go('/vault'),
             ),
-            _QuickActionChip(
-              icon: Icons.playlist_play,
+            const SizedBox(width: 8),
+            _Action(
+              icon: Icons.play_circle_outline,
               label: 'Automation',
               onTap: () => context.push('/automation'),
-            ),
-            _QuickActionChip(
-              icon: Icons.bug_report,
-              label: 'Incidents',
-              onTap: () => context.push('/incidents'),
-            ),
-            _QuickActionChip(
-              icon: Icons.run_circle,
-              label: 'Batch Ops',
-              onTap: () {},
-            ),
-            _QuickActionChip(
-              icon: Icons.keyboard_command_key,
-              label: 'Commands',
-              onTap: () {},
             ),
           ],
         ),
       ],
-    ).animate().fadeIn(delay: 400.ms, duration: 300.ms);
+    );
   }
+}
 
-  Widget _buildAlertsSection(AsyncValue<List<dynamic>> alerts) {
-    return alerts.when(
-      data: (alertList) {
-        if (alertList.isEmpty) return const SizedBox.shrink();
-        return Card(
+class _Action extends StatelessWidget {
+  const _Action({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Active Alerts (${alertList.length})',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.warningOrange),
-                    ),
-                    TextButton(onPressed: () => {}, child: const Text('View All')),
-                  ],
-                ),
+                Icon(icon, size: 22, color: context.scheme.primary),
                 const SizedBox(height: 8),
-                ...alertList.take(3).map((alert) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        Icons.warning_amber,
-                        color: AppTheme.severityColor(alert.severity ?? 'warning'),
-                      ),
-                      title: Text(alert.name ?? 'Unknown', style: const TextStyle(fontSize: 14)),
-                      subtitle: Text(alert.message ?? '', style: const TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right, size: 18),
-                    )),
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildIncidentsSection(AsyncValue<List<dynamic>> incidents) {
-    return incidents.when(
-      data: (list) {
-        final open = list.where((i) => i.status == 'open').toList();
-        if (open.isEmpty) return const SizedBox.shrink();
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Open Incidents (${open.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.dangerRed)),
-                    TextButton(onPressed: () => {}, child: const Text('View All')),
-                  ],
+                Text(
+                  label,
+                  style: context.text.labelSmall,
+                  textAlign: TextAlign.center,
                 ),
-                ...open.take(3).map((incident) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.bug_report, color: AppTheme.severityColor(incident.severity)),
-                      title: Text(incident.title, style: const TextStyle(fontSize: 14)),
-                      subtitle: Text('Created ${(incident.createdAt as DateTime?)?.timeAgo ?? ''}', style: const TextStyle(fontSize: 12)),
-                    )),
               ],
             ),
           ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+        ),
+      ),
     );
   }
+}
 
-  Widget _buildRecentHosts(AsyncValue<List<dynamic>> hosts) {
+class _AlertsSection extends ConsumerWidget {
+  const _AlertsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final alerts = ref.watch(alertsProvider);
+
+    return alerts.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (items) {
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        return _Section(
+          title: 'Active alerts (${items.length})',
+          titleColor: context.colors.danger,
+          onViewAll: () => context.push('/alerts'),
+          child: Column(
+            children: [
+              for (final alert in items.take(4)) _AlertRow(alert: alert),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AlertRow extends StatelessWidget {
+  const _AlertRow({required this.alert});
+
+  final Alert alert;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.colors.severity(alert.severity);
+
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Container(width: 3, height: 28, color: color),
+      title: Text(alert.name, style: context.text.bodyMedium),
+      subtitle: Text(
+        alert.message ?? alert.triggeredAt.timeAgo,
+        style: context.text.labelSmall?.copyWith(color: context.colors.textMuted),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _IncidentsSection extends ConsumerWidget {
+  const _IncidentsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final incidents = ref.watch(incidentsProvider);
+
+    return incidents.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (items) {
+        final open = items.where((i) => i.isOpen).toList();
+        if (open.isEmpty) return const SizedBox.shrink();
+
+        return _Section(
+          title: 'Open incidents (${open.length})',
+          titleColor: context.colors.danger,
+          onViewAll: () => context.push('/incidents'),
+          child: Column(
+            children: [
+              for (final incident in open.take(3)) _IncidentRow(incident: incident),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _IncidentRow extends StatelessWidget {
+  const _IncidentRow({required this.incident});
+
+  final Incident incident;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        Icons.bug_report_outlined,
+        size: 20,
+        color: context.colors.severity(incident.severity),
+      ),
+      title: Text(incident.title, style: context.text.bodyMedium),
+      subtitle: Text(
+        'Opened ${incident.createdAt.timeAgo}',
+        style: context.text.labelSmall?.copyWith(color: context.colors.textMuted),
+      ),
+      onTap: () => context.push('/incidents/${incident.id}'),
+    );
+  }
+}
+
+class _HostsSection extends ConsumerWidget {
+  const _HostsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hosts = ref.watch(hostsProvider);
+
     return hosts.when(
-      data: (hostList) {
-        if (hostList.isEmpty) {
+      loading: () => const SizedBox(height: 100, child: LoadingView()),
+      error: (error, _) => ErrorView(error: error, compact: true),
+      data: (items) {
+        if (items.isEmpty) {
           return Card(
             child: Padding(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  const Icon(Icons.computer, size: 48, color: AppTheme.textMuted),
+                  Icon(Icons.dns_outlined, size: 36, color: context.colors.textMuted),
+                  const SizedBox(height: 12),
+                  Text('No hosts yet', style: context.text.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Add a server and attach a credential to start monitoring.',
+                    style: context.text.bodySmall?.copyWith(color: context.colors.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 16),
-                  const Text('No hosts added yet', style: TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Your First Host'),
+                  FilledButton.icon(
+                    onPressed: () => context.push('/hosts/new'),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add your first host'),
                   ),
                 ],
               ),
@@ -281,113 +344,82 @@ class DashboardScreen extends ConsumerWidget {
           );
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Hosts', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            ...hostList.take(5).map((host) => _HostListTile(host: host)),
-          ],
+        return _Section(
+          title: 'Hosts',
+          onViewAll: () => context.go('/hosts'),
+          child: Column(
+            children: [
+              for (final host in items.take(5)) _HostRow(host: host),
+            ],
+          ),
         );
       },
-      loading: () => const Card(
-        child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
-      ),
-      error: (e, _) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: $e'))),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
+class _HostRow extends StatelessWidget {
+  const _HostRow({required this.host});
 
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
+  final Host host;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        Icons.dns_outlined,
+        size: 20,
+        color: context.colors.status(host.status),
+      ),
+      title: Text(host.name, style: context.text.bodyMedium),
+      subtitle: Text(
+        host.endpoint,
+        style: AppTypography.monoSmall(context.colors.textMuted),
+      ),
+      trailing: StatusBadge(status: host.status, fontSize: 10),
+      onTap: () => context.push('/hosts/${host.id}'),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({
+    required this.title,
+    required this.child,
+    this.titleColor,
+    this.onViewAll,
   });
+
+  final String title;
+  final Widget child;
+  final Color? titleColor;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary), textAlign: TextAlign.center),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: context.text.titleMedium?.copyWith(color: titleColor),
+                  ),
+                ),
+                if (onViewAll != null)
+                  TextButton(onPressed: onViewAll, child: const Text('View all')),
+              ],
+            ),
+            child,
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _MiniStat({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-      ],
-    );
-  }
-}
-
-class _QuickActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionChip({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      onPressed: onTap,
-      backgroundColor: AppTheme.bgSurface,
-    );
-  }
-}
-
-class _HostListTile extends StatelessWidget {
-  final dynamic host;
-
-  const _HostListTile({required this.host});
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = AppTheme.statusColor(host.status ?? 'unknown');
-    return Card(
-      child: ListTile(
-        leading: Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: statusColor,
-            boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.4), blurRadius: 6)],
-          ),
-        ),
-        title: Text(host.name ?? host.hostname, style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text('${host.hostname}:${host.port}', style: const TextStyle(fontSize: 12)),
-        trailing: const Icon(Icons.chevron_right, size: 18),
-        onTap: () => context.push('/hosts/${host.id}'),
       ),
     );
   }

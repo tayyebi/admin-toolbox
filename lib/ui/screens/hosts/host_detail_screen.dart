@@ -1,61 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/extensions.dart';
+import '../../../data/models/host.dart';
 import '../../../providers/providers.dart';
-import '../../widgets/status_badge.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/metric_card.dart';
+import '../../widgets/status_badge.dart';
 
 class HostDetailScreen extends ConsumerWidget {
-  final String hostId;
-
   const HostDetailScreen({super.key, required this.hostId});
+
+  final String hostId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hostAsync = ref.watch(hostDetailProvider(hostId));
-    final healthAsync = ref.watch(healthScoreProvider(hostId));
-    final metricsAsync = ref.watch(hostMetricsProvider(hostId));
 
     return Scaffold(
       appBar: AppBar(
-        title: hostAsync.when(
-          data: (host) => Text(host?.name ?? 'Host'),
-          loading: () => const Text('Loading...'),
-          error: (_, __) => const Text('Error'),
-        ),
+        title: Text(hostAsync.valueOrNull?.name ?? 'Host'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit_outlined),
             onPressed: () => context.push('/hosts/$hostId/edit'),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (action) {
-              switch (action) {
-                case 'terminal':
-                  context.push('/hosts/$hostId/terminal');
-                  break;
-                case 'files':
-                  context.push('/hosts/$hostId/files');
-                  break;
-                case 'monitor':
-                  context.push('/hosts/$hostId/monitoring');
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'terminal', child: ListTile(leading: Icon(Icons.terminal), title: Text('Terminal'), dense: true)),
-              const PopupMenuItem(value: 'files', child: ListTile(leading: Icon(Icons.folder_open), title: Text('Files'), dense: true)),
-              const PopupMenuItem(value: 'monitor', child: ListTile(leading: Icon(Icons.monitor_heart), title: Text('Monitoring'), dense: true)),
-            ],
           ),
         ],
       ),
       body: hostAsync.when(
+        loading: () => const LoadingView(),
+        error: (error, _) => ErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(hostDetailProvider(hostId)),
+        ),
         data: (host) {
           if (host == null) {
-            return const Center(child: Text('Host not found'));
+            return const EmptyState(icon: Icons.search_off, title: 'Host not found');
           }
 
           return RefreshIndicator(
@@ -65,111 +48,133 @@ class HostDetailScreen extends ConsumerWidget {
               ref.invalidate(hostMetricsProvider(hostId));
             },
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
               children: [
-                _buildHeader(host, healthAsync),
-                const SizedBox(height: 16),
-                _buildResourceMetrics(metricsAsync),
-                const SizedBox(height: 16),
-                _buildSystemInfo(host),
-                const SizedBox(height: 16),
-                _buildActions(context, ref, host),
+                _Header(host: host, hostId: hostId),
+                const SizedBox(height: 8),
+                _ResourceMetrics(hostId: hostId),
+                const SizedBox(height: 8),
+                _ConnectionInfo(host: host),
+                const SizedBox(height: 8),
+                _Actions(host: host),
               ],
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
+}
 
-  Widget _buildHeader(dynamic host, AsyncValue<int> healthAsync) {
-    final statusColor = AppTheme.statusColor(host.status ?? 'unknown');
+class _Header extends ConsumerWidget {
+  const _Header({required this.host, required this.hostId});
+
+  final Host host;
+  final String hostId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final statusColor = colors.status(host.status);
+    final health = ref.watch(healthScoreProvider(hostId));
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.computer, color: statusColor, size: 28),
+                  child: Icon(Icons.dns_outlined, color: statusColor, size: 26),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(host.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text('${host.hostname}:${host.port}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      Text(host.name, style: context.text.headlineSmall),
+                      const SizedBox(height: 2),
+                      Text(
+                        host.endpoint,
+                        style: AppTypography.monoSmall(colors.textMuted),
+                      ),
                     ],
                   ),
                 ),
-                healthAsync.when(
+                health.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
                   data: (score) {
-                    final color = score >= 80 ? AppTheme.successGreen : score >= 50 ? AppTheme.warningOrange : AppTheme.dangerRed;
+                    final color = colors.health(score);
                     return Column(
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: color, width: 3),
+                            border: Border.all(color: color, width: 2.5),
                           ),
-                          child: Center(child: Text('$score', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16))),
+                          child: Center(
+                            child: Text('$score', style: AppTypography.monoStyle(
+                              size: 15,
+                              weight: FontWeight.w600,
+                              color: color,
+                            )),
+                          ),
                         ),
                         const SizedBox(height: 4),
-                        Text('Health', style: TextStyle(fontSize: 10, color: color)),
+                        Text(
+                          'Health',
+                          style: context.text.labelSmall?.copyWith(color: color),
+                        ),
                       ],
                     );
                   },
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Row(
               children: [
                 StatusBadge(status: host.status),
                 const SizedBox(width: 8),
-                _InfoChip(label: host.connectionType?.toUpperCase() ?? 'SSH'),
-                if (host.groupId != null) ...[
-                  const SizedBox(width: 8),
-                  const _InfoChip(label: 'Group'),
-                ],
+                _Chip(label: host.connectionType.toUpperCase()),
               ],
             ),
-            if ((host.tags as List?)?.isNotEmpty == true) ...[
-              const SizedBox(height: 8),
+            if (host.tags.isNotEmpty) ...[
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 6,
-                children: (host.tags as List).map<Widget>((tag) => Chip(
-                      label: Text('$tag', style: const TextStyle(fontSize: 11)),
+                runSpacing: 6,
+                children: [
+                  for (final tag in host.tags)
+                    Chip(
+                      label: Text(tag),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
-                    )).toList(),
+                    ),
+                ],
               ),
             ],
-            if (host.notes != null && (host.notes as String).isNotEmpty) ...[
-              const SizedBox(height: 8),
+            if (host.notes != null && host.notes!.isNotEmpty) ...[
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.bgSurface,
-                  borderRadius: BorderRadius.circular(8),
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(host.notes, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                child: Text(host.notes!, style: context.text.bodySmall),
               ),
             ],
           ],
@@ -177,111 +182,252 @@ class HostDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildResourceMetrics(AsyncValue<List<dynamic>> metricsAsync) {
+class _ResourceMetrics extends ConsumerWidget {
+  const _ResourceMetrics({required this.hostId});
+
+  final String hostId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metricsAsync = ref.watch(hostMetricsProvider(hostId));
+
     return metricsAsync.when(
+      loading: () => const SizedBox(height: 80, child: LoadingView()),
+      error: (error, _) => ErrorView(error: error, compact: true),
       data: (metrics) {
-        String findValue(String collectorId) {
+        if (metrics.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.query_stats, size: 18, color: context.colors.textMuted),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'No metrics collected yet. Turn on background monitoring '
+                      'in Settings.',
+                      style: context.text.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        String read(String collectorId, {bool asBytes = false}) {
           final match = metrics.where((m) => m.collectorId == collectorId);
-          if (match.isEmpty) return '--';
-          final value = match.first.value;
-          final unit = match.first.unit ?? '';
-          if (match.first.collectorId == 'memory_total' || match.first.collectorId == 'disk_total') {
-            final bytes = int.tryParse(value);
+          if (match.isEmpty) return '—';
+          final metric = match.first;
+          if (asBytes) {
+            final bytes = int.tryParse(metric.value);
             if (bytes != null) return formatBytes(bytes);
           }
-          return '$value$unit';
+          return metric.value;
         }
+
+        String unitOf(String collectorId) {
+          final match = metrics.where((m) => m.collectorId == collectorId);
+          return match.isEmpty ? '' : (match.first.unit ?? '');
+        }
+
+        final colors = context.colors;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Resource Metrics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Text('Resources', style: context.text.titleMedium),
+            ),
             Row(
               children: [
-                Expanded(child: MetricCard(label: 'CPU', value: findValue('cpu_usage'), icon: Icons.memory, color: AppTheme.primaryBlue)),
+                Expanded(
+                  child: MetricCard(
+                    label: 'CPU',
+                    value: read('cpu_usage'),
+                    unit: unitOf('cpu_usage'),
+                    icon: Icons.memory,
+                    color: context.scheme.primary,
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: MetricCard(label: 'Memory', value: findValue('memory_usage_pct'), icon: Icons.storage, color: AppTheme.infoCyan)),
+                Expanded(
+                  child: MetricCard(
+                    label: 'Memory',
+                    value: read('memory_usage_pct'),
+                    unit: unitOf('memory_usage_pct'),
+                    icon: Icons.storage,
+                    color: colors.info,
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: MetricCard(label: 'Disk', value: findValue('disk_usage_pct'), icon: Icons.disc_full, color: AppTheme.warningOrange)),
+                Expanded(
+                  child: MetricCard(
+                    label: 'Disk',
+                    value: read('disk_usage_pct'),
+                    unit: unitOf('disk_usage_pct'),
+                    icon: Icons.disc_full,
+                    color: colors.warning,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: MetricCard(label: 'Load', value: findValue('cpu_load_1m'), icon: Icons.trending_up, color: AppTheme.primaryBlue)),
+                Expanded(
+                  child: MetricCard(
+                    label: 'Memory total',
+                    value: read('memory_total', asBytes: true),
+                    icon: Icons.developer_board,
+                    color: context.scheme.primary,
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: MetricCard(label: 'Network', value: findValue('net_private_ip'), icon: Icons.wifi, color: AppTheme.successGreen)),
+                Expanded(
+                  child: MetricCard(
+                    label: 'Processes',
+                    value: read('proc_running'),
+                    icon: Icons.apps,
+                    color: colors.success,
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: MetricCard(label: 'Processes', value: findValue('proc_running'), icon: Icons.apps, color: AppTheme.textSecondary)),
+                Expanded(
+                  child: MetricCard(
+                    label: 'Failed units',
+                    value: read('svc_failed'),
+                    icon: Icons.error_outline,
+                    color: colors.danger,
+                  ),
+                ),
               ],
             ),
           ],
         );
       },
-      loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
-      error: (_, __) => const SizedBox.shrink(),
     );
   }
+}
 
-  Widget _buildSystemInfo(dynamic host) {
+class _ConnectionInfo extends ConsumerWidget {
+  const _ConnectionInfo({required this.host});
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final identities = ref.watch(identitiesProvider).valueOrNull ?? const [];
+    final groups = ref.watch(groupsProvider).valueOrNull ?? const [];
+
+    // Resolve to names — a raw UUID told the user nothing.
+    final identityName = host.identityId == null
+        ? 'None'
+        : identities
+            .where((i) => i.id == host.identityId)
+            .map((i) => '${i.name} (${i.username})')
+            .firstOrDefault('Missing credential');
+
+    final groupName = host.groupId == null
+        ? 'Ungrouped'
+        : groups.where((g) => g.id == host.groupId).map((g) => g.name).firstOrDefault('Unknown');
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Connection Info', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text('Connection', style: context.text.titleMedium),
             const SizedBox(height: 12),
-            _InfoRow(label: 'Hostname', value: '${host.hostname}'),
-            _InfoRow(label: 'Port', value: '${host.port}'),
-            _InfoRow(label: 'Connection', value: (host.connectionType as String?)?.toUpperCase() ?? 'SSH'),
-            _InfoRow(label: 'Identity', value: host.identityId ?? 'None'),
-            _InfoRow(label: 'Last Seen', value: host.lastSeen != null ? (host.lastSeen as DateTime).timeAgo : 'Never'),
-            _InfoRow(label: 'Status', value: host.status, valueColor: AppTheme.statusColor(host.status)),
-            if ((host.metadata as Map?)?.isNotEmpty == true) ...[
-              const SizedBox(height: 8),
-              const Text('Metadata', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              ...(host.metadata as Map).entries.map<Widget>((e) =>
-                  _InfoRow(label: '${e.key}', value: '${e.value}')),
+            _InfoRow(label: 'Hostname', value: host.hostname, mono: true),
+            _InfoRow(label: 'Port', value: '${host.port}', mono: true),
+            _InfoRow(label: 'Credential', value: identityName),
+            _InfoRow(label: 'Group', value: groupName),
+            _InfoRow(
+              label: 'Last seen',
+              value: host.lastSeen?.timeAgo ?? 'Never',
+            ),
+            _InfoRow(
+              label: 'Status',
+              value: host.status,
+              valueColor: context.colors.status(host.status),
+            ),
+            if (host.metadata.isNotEmpty) ...[
+              const Divider(height: 24),
+              Text('Metadata', style: context.text.titleSmall),
+              const SizedBox(height: 6),
+              for (final entry in host.metadata.entries)
+                _InfoRow(label: entry.key, value: entry.value, mono: true),
             ],
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildActions(BuildContext context, WidgetRef ref, dynamic host) {
+class _Actions extends ConsumerWidget {
+  const _Actions({required this.host});
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final canConnect = host.identityId != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('Actions', style: context.text.titleMedium),
+        ),
+        if (!canConnect)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.warning.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: colors.warning.withValues(alpha: 0.35)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.key_off_outlined, size: 18, color: colors.warning),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'No credential is attached, so this host cannot be '
+                      'reached. Edit it and pick one from the vault.',
+                      style: context.text.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => context.push('/hosts/$hostId/terminal'),
+                onPressed: canConnect ? () => context.push('/hosts/${host.id}/terminal') : null,
                 icon: const Icon(Icons.terminal, size: 18),
                 label: const Text('Terminal'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryBlue,
-                  side: const BorderSide(color: AppTheme.borderDefault),
-                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => context.push('/hosts/$hostId/files'),
+                onPressed: canConnect ? () => context.push('/hosts/${host.id}/files') : null,
                 icon: const Icon(Icons.folder_open, size: 18),
                 label: const Text('Files'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.infoCyan,
-                  side: const BorderSide(color: AppTheme.borderDefault),
-                ),
               ),
             ),
           ],
@@ -291,89 +437,146 @@ class HostDetailScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => context.push('/hosts/$hostId/monitoring'),
-                icon: const Icon(Icons.monitor_heart, size: 18),
+                onPressed: () => context.push('/hosts/${host.id}/monitoring'),
+                icon: const Icon(Icons.monitor_heart_outlined, size: 18),
                 label: const Text('Monitoring'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.successGreen,
-                  side: const BorderSide(color: AppTheme.borderDefault),
-                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  ref.read(hostListProvider.notifier).toggleFavorite(hostId);
+                onPressed: () async {
+                  await ref.read(hostListProvider.notifier).toggleFavorite(host.id);
+                  ref.invalidate(hostDetailProvider(host.id));
+                  ref.invalidate(hostsProvider);
                 },
-                icon: Icon(host.favorite == true ? Icons.star : Icons.star_border, size: 18),
-                label: Text(host.favorite == true ? 'Favorited' : 'Favorite'),
+                icon: Icon(host.favorite ? Icons.star : Icons.star_border, size: 18),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.warningOrange,
-                  side: const BorderSide(color: AppTheme.borderDefault),
+                  foregroundColor: host.favorite ? colors.warning : null,
                 ),
+                label: Text(host.favorite ? 'Favourited' : 'Favourite'),
               ),
             ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => context.push('/hosts/$hostId/edit'),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Delete Host'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.dangerRed,
-                side: const BorderSide(color: AppTheme.dangerRed),
-              ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            // Previously navigated to the edit screen instead of deleting.
+            onPressed: () => _confirmDelete(context, ref),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Delete host'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.danger,
+              side: BorderSide(color: colors.danger.withValues(alpha: 0.5)),
             ),
           ),
         ),
       ],
     );
   }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete ${host.name}?'),
+        content: const Text(
+          'The host and its collected metrics are removed. Credentials in the '
+          'vault are not affected. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.colors.danger),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(hostListProvider.notifier).removeHost(host.id);
+    ref.invalidate(hostsProvider);
+    ref.invalidate(hostStatusCountsProvider);
+
+    if (context.mounted) context.pop();
+  }
 }
 
-class _InfoChip extends StatelessWidget {
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label});
+
   final String label;
-  const _InfoChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.borderDefault),
+        border: Border.all(color: context.colors.border),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+      child: Text(
+        label,
+        style: context.text.labelSmall?.copyWith(color: context.colors.textMuted),
+      ),
     );
   }
 }
 
 class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.mono = false,
+  });
+
   final String label;
   final String value;
   final Color? valueColor;
-
-  const _InfoRow({required this.label, required this.value, this.valueColor});
+  final bool mono;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 2, child: Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: context.text.bodySmall?.copyWith(color: context.colors.textMuted),
+            ),
+          ),
           Expanded(
             flex: 3,
-            child: Text(value, style: TextStyle(color: valueColor ?? AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500), textAlign: TextAlign.right),
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: mono
+                  ? AppTypography.monoSmall(valueColor ?? context.scheme.onSurface)
+                  : context.text.bodyMedium?.copyWith(
+                      color: valueColor ?? context.scheme.onSurface,
+                    ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+extension _FirstOrDefault on Iterable<String> {
+  String firstOrDefault(String fallback) => isEmpty ? fallback : first;
 }

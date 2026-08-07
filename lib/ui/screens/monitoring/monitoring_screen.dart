@@ -1,59 +1,140 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/settings/app_settings.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/extensions.dart';
+import '../../../data/models/alert.dart';
+import '../../../data/models/host.dart';
 import '../../../providers/providers.dart';
+import '../../widgets/error_view.dart';
 
 class MonitoringScreen extends ConsumerWidget {
   const MonitoringScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hostsAsync = ref.watch(hostsProvider);
-    final alertsAsync = ref.watch(alertsProvider);
-    final statusCountsAsync = ref.watch(hostStatusCountsProvider);
+    final isMonitoring = ref.watch(isMonitoringProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monitoring'),
+        actions: [
+          IconButton(
+            tooltip: isMonitoring ? 'Stop collecting' : 'Start collecting',
+            icon: Icon(isMonitoring ? Icons.pause_circle_outline : Icons.play_circle_outline),
+            onPressed: () async {
+              final monitoring = ref.read(monitoringServiceProvider);
+              final settings = ref.read(settingsProvider);
+
+              if (isMonitoring) {
+                monitoring.stopMonitoring();
+              } else {
+                await monitoring.startMonitoring(
+                  interval: settings.monitoringInterval,
+                  retentionDays: settings.metricRetentionDays,
+                );
+              }
+              ref.read(isMonitoringProvider.notifier).state = !isMonitoring;
+            },
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(hostsProvider);
-          ref.invalidate(alertsProvider);
+          ref
+            ..invalidate(hostStatusCountsProvider)
+            ..invalidate(alertsProvider)
+            ..invalidate(hostsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            _buildFleetOverview(statusCountsAsync),
-            const SizedBox(height: 16),
-            _buildAlertsList(alertsAsync),
-            const SizedBox(height: 16),
-            _buildHostStatus(hostsAsync),
+            if (!isMonitoring) const _IdleBanner(),
+            const _FleetOverview(),
+            const SizedBox(height: 20),
+            const _AlertsList(),
+            const SizedBox(height: 20),
+            const _HostStatusList(),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildFleetOverview(AsyncValue<Map<String, int>> statusCounts) {
-    return statusCounts.when(
-      data: (counts) {
-        final total = counts.values.fold(0, (a, b) => a + b);
+class _IdleBanner extends StatelessWidget {
+  const _IdleBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.colors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: context.colors.warning.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.pause_circle_outline, size: 18, color: context.colors.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Collection is stopped. Start it to gather metrics and evaluate '
+              'alert rules.',
+              style: context.text.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FleetOverview extends ConsumerWidget {
+  const _FleetOverview();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final counts = ref.watch(hostStatusCountsProvider);
+    final colors = context.colors;
+
+    return counts.when(
+      loading: () => const SizedBox(height: 100, child: LoadingView()),
+      error: (error, _) => ErrorView(error: error, compact: true),
+      data: (data) {
+        final total = data.values.fold<int>(0, (sum, value) => sum + value);
+
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Fleet Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
+                Text('Fleet status', style: context.text.titleMedium),
+                const SizedBox(height: 16),
                 Row(
                   children: [
-                    _StatusIndicator(label: 'Total', count: total, color: AppTheme.primaryBlue),
-                    _StatusIndicator(label: 'Online', count: counts['online'] ?? 0, color: AppTheme.successGreen),
-                    _StatusIndicator(label: 'Offline', count: counts['offline'] ?? 0, color: AppTheme.dangerRed),
-                    _StatusIndicator(label: 'Warning', count: counts['warning'] ?? 0, color: AppTheme.warningOrange),
+                    _Indicator(label: 'Total', count: total, color: context.scheme.primary),
+                    _Indicator(
+                      label: 'Online',
+                      count: data['online'] ?? 0,
+                      color: colors.success,
+                    ),
+                    _Indicator(
+                      label: 'Offline',
+                      count: data['offline'] ?? 0,
+                      color: colors.danger,
+                    ),
+                    _Indicator(
+                      label: 'Unknown',
+                      count: data['unknown'] ?? 0,
+                      color: colors.textMuted,
+                    ),
                   ],
                 ),
               ],
@@ -61,123 +142,214 @@ class MonitoringScreen extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const Card(child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildAlertsList(AsyncValue<List<dynamic>> alertsAsync) {
-    return alertsAsync.when(
-      data: (alerts) {
-        if (alerts.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Active Alerts (${alerts.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                TextButton(onPressed: () {}, child: const Text('View All')),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...alerts.map((alert) => Card(
-                  child: ListTile(
-                    leading: Icon(
-                      Icons.warning_amber,
-                      color: AppTheme.severityColor(alert.severity ?? 'warning'),
-                    ),
-                    title: Text(alert.name ?? 'Alert', style: const TextStyle(fontSize: 14)),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (alert.message != null) Text(alert.message!, style: const TextStyle(fontSize: 12)),
-                        Text((alert.triggeredAt as DateTime).timeAgo, style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.check, size: 18, color: AppTheme.successGreen),
-                          onPressed: () {},
-                          tooltip: 'Acknowledge',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.visibility_off, size: 18, color: AppTheme.textMuted),
-                          onPressed: () {},
-                          tooltip: 'Silence',
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
-          ],
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildHostStatus(AsyncValue<List<dynamic>> hostsAsync) {
-    return hostsAsync.when(
-      data: (hosts) {
-        if (hosts.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Host Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            ...hosts.map((host) => Card(
-                  child: ListTile(
-                    leading: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.statusColor(host.status ?? 'unknown'),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.statusColor(host.status ?? 'unknown').withValues(alpha: 0.4),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                    ),
-                    title: Text(host.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                    subtitle: Text(host.hostname, style: const TextStyle(fontSize: 12)),
-                    trailing: Text(
-                      host.lastSeen != null ? (host.lastSeen as DateTime).timeAgo : 'Never',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                    ),
-                  ),
-                )),
-          ],
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
 
-class _StatusIndicator extends StatelessWidget {
+class _Indicator extends StatelessWidget {
+  const _Indicator({required this.label, required this.count, required this.color});
+
   final String label;
   final int count;
   final Color color;
-
-  const _StatusIndicator({required this.label, required this.count, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Column(
         children: [
-          Text('$count', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+          Text('$count', style: AppTypography.monoMetric(color)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+          Text(
+            label,
+            style: context.text.labelSmall?.copyWith(color: context.colors.textMuted),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _AlertsList extends ConsumerWidget {
+  const _AlertsList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final alerts = ref.watch(alertsProvider);
+
+    return alerts.when(
+      loading: () => const SizedBox.shrink(),
+      error: (error, _) => ErrorView(error: error, compact: true),
+      data: (items) => Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Active alerts (${items.length})',
+                      style: context.text.titleMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push('/alerts'),
+                    child: const Text('View all'),
+                  ),
+                ],
+              ),
+              if (items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 18, color: context.colors.success),
+                      const SizedBox(width: 8),
+                      Text('Nothing firing', style: context.text.bodySmall),
+                    ],
+                  ),
+                )
+              else
+                for (final alert in items.take(5)) _AlertRow(alert: alert),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AlertRow extends ConsumerWidget {
+  const _AlertRow({required this.alert});
+
+  final Alert alert;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final color = context.colors.severity(alert.severity);
+
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Container(width: 3, height: 30, color: color),
+      title: Text(alert.name, style: context.text.bodyMedium),
+      subtitle: Text(
+        alert.triggeredAt.timeAgo,
+        style: context.text.labelSmall?.copyWith(color: context.colors.textMuted),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Acknowledge',
+            icon: Icon(Icons.check, size: 18, color: context.colors.success),
+            onPressed: () async {
+              await ref.read(alertRepositoryProvider).acknowledge(alert.id);
+              ref.invalidate(alertsProvider);
+            },
+          ),
+          IconButton(
+            tooltip: 'Resolve',
+            icon: Icon(Icons.done_all, size: 18, color: context.colors.textMuted),
+            onPressed: () async {
+              await ref.read(alertRepositoryProvider).resolve(alert.id);
+              ref.invalidate(alertsProvider);
+              ref.invalidate(activeAlertCountProvider);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HostStatusList extends ConsumerWidget {
+  const _HostStatusList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hosts = ref.watch(hostsProvider);
+
+    return hosts.when(
+      loading: () => const SizedBox.shrink(),
+      error: (error, _) => ErrorView(error: error, compact: true),
+      data: (items) {
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Host status', style: context.text.titleMedium),
+                const SizedBox(height: 8),
+                for (final host in items) _HostStatusRow(host: host),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HostStatusRow extends ConsumerWidget {
+  const _HostStatusRow({required this.host});
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final color = context.colors.status(host.status);
+    final health = ref.watch(healthScoreProvider(host.id));
+
+    return InkWell(
+      onTap: () => context.push('/hosts/${host.id}/monitoring'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 5, spreadRadius: 1),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(host.name, style: context.text.bodyMedium),
+                  Text(
+                    host.endpoint,
+                    style: AppTypography.monoSmall(context.colors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            health.maybeWhen(
+              orElse: () => const SizedBox.shrink(),
+              data: (score) => Text(
+                '$score',
+                style: AppTypography.monoStyle(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: context.colors.health(score),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

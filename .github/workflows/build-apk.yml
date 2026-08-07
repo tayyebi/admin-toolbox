@@ -52,14 +52,7 @@ jobs:
         run: flutter analyze --fatal-warnings
 
       - name: Run tests
-        run: flutter test --coverage
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage
-          path: coverage/lcov.info
-          if-no-files-found: ignore
+        run: flutter test
 
   build:
     name: Build Android
@@ -135,39 +128,33 @@ jobs:
             } > android/key.properties
           fi
 
+      # Dart obfuscation is deliberately off. It only pays for itself alongside
+      # the --split-debug-info symbol archive, and without that archive an
+      # obfuscated release produces stack traces nobody can read. R8 still
+      # shrinks and minifies the Android side.
       - name: Build release APK
         run: |
           flutter build apk --release \
             --build-number=${{ steps.version.outputs.code }} \
-            --build-name=${{ steps.version.outputs.name }} \
-            --split-debug-info=build/symbols \
-            --obfuscate
+            --build-name=${{ steps.version.outputs.name }}
 
-      - name: Build App Bundle
+      - name: Name the APK after its version
+        id: apk
         run: |
-          flutter build appbundle --release \
-            --build-number=${{ steps.version.outputs.code }} \
-            --build-name=${{ steps.version.outputs.name }} \
-            --split-debug-info=build/symbols \
-            --obfuscate
+          SRC=build/app/outputs/flutter-apk/app-release.apk
+          OUT="admin-toolbox-${{ steps.version.outputs.name }}.apk"
+          mv "$SRC" "$OUT"
+          echo "path=$OUT" >> "$GITHUB_OUTPUT"
+          echo "Built $OUT ($(du -h "$OUT" | cut -f1))"
 
+      # GitHub always zips workflow artifacts — that is the platform, not a
+      # setting. The release asset below is the plain, installable .apk.
       - uses: actions/upload-artifact@v4
         with:
-          name: admin-toolbox-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: admin-toolbox-release-aab
-          path: build/app/outputs/bundle/release/app-release.aab
-
-      # Obfuscated stack traces are unreadable without these. Keep them for
-      # every release or crash reports from the field cannot be symbolicated.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: debug-symbols
-          path: build/symbols
-          if-no-files-found: warn
+          name: admin-toolbox-apk
+          path: ${{ steps.apk.outputs.path }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -175,8 +162,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          files: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          files: ${{ steps.apk.outputs.path }}
           generate_release_notes: true
           make_latest: true

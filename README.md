@@ -84,8 +84,9 @@ flutter build apk --release       # sideload
 flutter build appbundle --release # Play Store
 ```
 
-Release builds are minified and obfuscated. Keep the `build/symbols` output for
-any build you distribute, or its crash reports cannot be symbolicated.
+Release builds are shrunk and minified by R8. Dart obfuscation is off: it is
+only worth enabling together with `--split-debug-info`, and without that symbol
+archive an obfuscated build produces stack traces that cannot be read.
 
 ## Architecture
 
@@ -150,10 +151,14 @@ docker run -d --name sshtest -p 2222:22 \
 `.github/workflows/build-apk.yml` runs formatting, analysis and tests on every
 push and pull request.
 
-Artifacts are built only when there is something to install: a `v*` tag builds
-a signed APK and App Bundle and publishes a GitHub release. A manual run
-(Actions → CI → Run workflow) builds them on demand, which is the way to get a
-test build off a branch. Ordinary pushes to `main` stop after the checks.
+One artifact is produced, and only when there is something to install: a
+signed release APK, named `admin-toolbox-<version>.apk`. A `v*` tag builds it
+and attaches it to a GitHub release, where it downloads as a plain installable
+`.apk`. A manual run (Actions → CI → Run workflow) builds it on demand for a
+branch; note that GitHub always zips *workflow artifacts*, so that path gives
+you a zip containing the APK — only release assets download unwrapped.
+
+Ordinary pushes to `main` stop after the checks.
 
 Signing secrets, if configured:
 

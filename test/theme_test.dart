@@ -83,33 +83,34 @@ void main() {
   });
 
   testWidgets('context.colors resolves per theme', (tester) async {
-    late AppColors lightColors;
-    late AppColors darkColors;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Builder(
-          builder: (context) {
-            lightColors = context.colors;
-            return const SizedBox.shrink();
-          },
+    // MaterialApp wraps its theme in an AnimatedTheme, so swapping the theme
+    // on an existing tree interpolates over ~200ms — sampling immediately
+    // would read values still part-way between light and dark. A distinct key
+    // per pump forces a fresh tree instead, and settling afterwards guards
+    // against any animation that does start.
+    Future<AppColors> colorsFor(ThemeData theme, Key key) async {
+      late AppColors captured;
+      await tester.pumpWidget(
+        MaterialApp(
+          key: key,
+          theme: theme,
+          home: Builder(
+            builder: (context) {
+              captured = context.colors;
+              return const SizedBox.shrink();
+            },
+          ),
         ),
-      ),
-    );
+      );
+      await tester.pumpAndSettle();
+      return captured;
+    }
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.dark,
-        home: Builder(
-          builder: (context) {
-            darkColors = context.colors;
-            return const SizedBox.shrink();
-          },
-        ),
-      ),
-    );
+    final lightColors = await colorsFor(AppTheme.light, const ValueKey('light'));
+    final darkColors = await colorsFor(AppTheme.dark, const ValueKey('dark'));
 
+    expect(lightColors.surfaceMuted, AppColors.light.surfaceMuted);
+    expect(darkColors.surfaceMuted, AppColors.dark.surfaceMuted);
     expect(lightColors.surfaceMuted, isNot(darkColors.surfaceMuted));
     expect(lightColors.border, isNot(darkColors.border));
   });

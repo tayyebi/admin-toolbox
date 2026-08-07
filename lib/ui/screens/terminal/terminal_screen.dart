@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,7 +13,6 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/models/command.dart';
 import '../../../data/transport/connection_manager.dart';
-import '../../../data/transport/ssh_client.dart';
 import '../../../data/transport/transport.dart';
 import '../../../providers/providers.dart';
 import '../../widgets/error_view.dart';

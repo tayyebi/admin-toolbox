@@ -93,14 +93,14 @@ class _IdentityDetailScreenState extends ConsumerState<IdentityDetailScreen> {
         if (identity.fingerprint != null)
           _InfoCard(
             title: 'Fingerprint',
-            child: SelectableText(
-              identity.fingerprint!,
-              style: AppTypography.monoSmall(context.scheme.onSurface),
-            ),
             trailing: IconButton(
               tooltip: 'Copy',
               icon: const Icon(Icons.copy, size: 18),
               onPressed: () => _copy(identity.fingerprint!, 'Fingerprint copied'),
+            ),
+            child: SelectableText(
+              identity.fingerprint!,
+              style: AppTypography.monoSmall(context.scheme.onSurface),
             ),
           ),
 
@@ -418,7 +418,7 @@ class _IdentityDetailScreenState extends ConsumerState<IdentityDetailScreen> {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.title, required this.child, this.trailing});
+  const _InfoCard({required this.title, this.trailing, required this.child});
 
   final String title;
   final Widget child;

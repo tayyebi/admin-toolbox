@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -90,7 +92,9 @@ class _ProceduresTab extends ConsumerWidget {
                             onSelected: (action) async {
                               switch (action) {
                                 case 'edit':
-                                  context.push('/automation/${automation.id}/edit');
+                                  unawaited(
+                                    context.push('/automation/${automation.id}/edit'),
+                                  );
                                 case 'delete':
                                   await ref
                                       .read(automationRepositoryProvider)

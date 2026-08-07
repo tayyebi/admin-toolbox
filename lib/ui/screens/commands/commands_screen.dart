@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -121,7 +123,7 @@ class _CommandCard extends ConsumerWidget {
                   onSelected: (action) async {
                     switch (action) {
                       case 'edit':
-                        context.push('/commands/${command.id}/edit');
+                        unawaited(context.push('/commands/${command.id}/edit'));
                       case 'copy':
                         await Clipboard.setData(ClipboardData(text: command.command));
                         if (context.mounted) {

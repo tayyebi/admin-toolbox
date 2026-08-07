@@ -1,7 +1,8 @@
 import 'package:uuid/uuid.dart';
+
+import '../../../core/utils/logger.dart';
 import '../../../data/models/metric.dart';
 import '../../../data/transport/transport.dart';
-import '../../../core/utils/logger.dart';
 
 abstract class MetricCollector {
   final String id;

@@ -62,7 +62,8 @@ class ConnectionManager {
       pooled.retain();
       return session;
     } finally {
-      _connecting.remove(host.id);
+      // The removed value is the same future already awaited above.
+      _connecting.remove(host.id)?.ignore();
     }
   }
 

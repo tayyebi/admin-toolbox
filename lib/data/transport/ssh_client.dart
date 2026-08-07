@@ -99,11 +99,14 @@ class SshTransportSession implements TransportSession {
             config.password != null && config.password!.isNotEmpty ? () => config.password! : null,
         onVerifyHostKey: (keyType, fingerprint) =>
             _verifyHostKey(config, keyType, fingerprint),
-        handshakeTimeout: config.connectTimeout,
-        authTimeout: config.connectTimeout,
       );
 
-      await _client!.authenticated;
+      // dartssh2 2.10 has no handshake or auth timeout of its own, so the
+      // whole authentication phase is bounded here. Without it a server that
+      // accepts the TCP connection and then stalls would hang the caller
+      // indefinitely — which for the monitoring loop means a stuck cycle.
+      await _client!.authenticated.timeout(config.connectTimeout);
+
       _connected = true;
       logInfo('Connected to ${config.host}:${config.port}');
     } catch (e, stack) {
@@ -423,13 +426,27 @@ class SshTransportSession implements TransportSession {
     await destination.parent.create(recursive: true);
     final sink = destination.openWrite();
 
+    // Read in fixed chunks rather than pulling the whole file into memory —
+    // a log file on a busy server is routinely larger than a phone wants to
+    // hold at once.
+    const chunkSize = 64 * 1024;
+    final file = await sftp.open(remotePath);
+
     try {
-      await sftp.download(
-        remotePath,
-        sink,
-        onProgress: (received) => onProgress?.call(received, total),
-      );
+      var offset = 0;
+      while (true) {
+        final chunk = await file.readBytes(length: chunkSize, offset: offset);
+        if (chunk.isEmpty) break;
+
+        sink.add(chunk);
+        offset += chunk.length;
+        onProgress?.call(offset, total);
+
+        // A short read means end of file.
+        if (chunk.length < chunkSize) break;
+      }
     } finally {
+      await file.close();
       await sink.flush();
       await sink.close();
     }
@@ -519,7 +536,7 @@ class SshTransportSession implements TransportSession {
     _client = null;
 
     try {
-      _socket?.close();
+      await _socket?.close();
     } catch (_) {
       // Already gone.
     }

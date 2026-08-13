@@ -227,6 +227,11 @@ class HostListNotifier extends StateNotifier<AsyncValue<List<Host>>> {
     await _repo.toggleFavorite(id);
     await loadHosts();
   }
+
+  Future<void> toggleMonitoringPaused(String id) async {
+    await _repo.toggleMonitoringPaused(id);
+    await loadHosts();
+  }
 }
 
 final hostListProvider = StateNotifierProvider<HostListNotifier, AsyncValue<List<Host>>>((ref) {

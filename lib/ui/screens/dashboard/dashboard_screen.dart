@@ -69,7 +69,8 @@ class _StatusOverview extends ConsumerWidget {
       data: (data) {
         final online = data['online'] ?? 0;
         final offline = data['offline'] ?? 0;
-        final unknown = (data['unknown'] ?? 0) + (data['pending'] ?? 0);
+        final unknown =
+            (data['unknown'] ?? 0) + (data['pending'] ?? 0) + (data['paused'] ?? 0);
         final total = data.values.fold<int>(0, (sum, value) => sum + value);
 
         return Card(

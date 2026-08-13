@@ -8,8 +8,9 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   /// v1 → v2 adds the SSH key vault columns, known-hosts pinning, automation
-  /// run history, and the audit hash chain.
-  static const int schemaVersion = 2;
+  /// run history, and the audit hash chain. v2 → v3 adds per-host monitoring
+  /// pause.
+  static const int schemaVersion = 3;
 
   static Database? _db;
 
@@ -55,6 +56,7 @@ class AppDatabase {
         metadata TEXT,
         status TEXT NOT NULL DEFAULT 'unknown',
         last_seen TEXT,
+        monitoring_paused INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -325,6 +327,10 @@ class AppDatabase {
       ''');
 
       await _createIndexes(db);
+    }
+
+    if (oldVersion < 3) {
+      await _addColumnIfMissing(db, 'hosts', 'monitoring_paused', 'INTEGER NOT NULL DEFAULT 0');
     }
   }
 

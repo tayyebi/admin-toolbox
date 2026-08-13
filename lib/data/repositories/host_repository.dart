@@ -60,6 +60,7 @@ class HostRepository {
       metadata: host.metadata,
       status: host.status,
       lastSeen: host.lastSeen,
+      monitoringPaused: host.monitoringPaused,
       createdAt: host.createdAt != DateTime(0) ? host.createdAt : now,
       updatedAt: now,
     );
@@ -113,6 +114,24 @@ class HostRepository {
       await db.update(
         'hosts',
         {'favorite': host.favorite ? 0 : 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+  }
+
+  /// A paused host is skipped by the background monitoring loop, but the
+  /// status it was last seen at is kept until the next real connection.
+  Future<void> toggleMonitoringPaused(String id) async {
+    final db = await AppDatabase.instance.database;
+    final host = await getById(id);
+    if (host != null) {
+      await db.update(
+        'hosts',
+        {
+          'monitoring_paused': host.monitoringPaused ? 0 : 1,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
         where: 'id = ?',
         whereArgs: [id],
       );

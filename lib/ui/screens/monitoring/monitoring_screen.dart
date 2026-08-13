@@ -135,6 +135,11 @@ class _FleetOverview extends ConsumerWidget {
                       count: data['unknown'] ?? 0,
                       color: colors.textMuted,
                     ),
+                    _Indicator(
+                      label: 'Paused',
+                      count: data['paused'] ?? 0,
+                      color: colors.textMuted,
+                    ),
                   ],
                 ),
               ],
@@ -347,6 +352,19 @@ class _HostStatusRow extends ConsumerWidget {
                   color: context.colors.health(score),
                 ),
               ),
+            ),
+            IconButton(
+              tooltip: host.monitoringPaused ? 'Resume monitoring' : 'Pause monitoring',
+              icon: Icon(
+                host.monitoringPaused ? Icons.play_circle_outline : Icons.pause_circle_outline,
+                size: 20,
+                color: host.monitoringPaused ? context.colors.warning : context.colors.textMuted,
+              ),
+              onPressed: () async {
+                await ref.read(hostListProvider.notifier).toggleMonitoringPaused(host.id);
+                ref.invalidate(hostsProvider);
+                ref.invalidate(hostStatusCountsProvider);
+              },
             ),
           ],
         ),

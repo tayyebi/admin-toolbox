@@ -193,7 +193,12 @@ class _HostCard extends ConsumerWidget {
                 children: [
                   StatusBadge(status: host.status),
                   const SizedBox(height: 6),
-                  if (host.favorite) Icon(Icons.star, size: 15, color: colors.warning),
+                  if (host.monitoringPaused)
+                    Icon(Icons.pause_circle_outline, size: 15, color: colors.textMuted),
+                  if (host.favorite) ...[
+                    if (host.monitoringPaused) const SizedBox(height: 4),
+                    Icon(Icons.star, size: 15, color: colors.warning),
+                  ],
                 ],
               ),
             ],

@@ -93,6 +93,14 @@ class MonitoringService {
   }
 
   Future<List<Metric>> collectHostMetrics(Host host) async {
+    // Paused hosts are never dialled by the sweep — that is the point of
+    // pausing. Manual actions (terminal, files, test connection) still work;
+    // they go through ConnectionManager directly, not this loop.
+    if (host.monitoringPaused) {
+      await _hostRepo.updateStatus(host.id, 'paused');
+      return const [];
+    }
+
     // A host with no credential can never be reached; marking it "offline"
     // hides a configuration problem behind what looks like a network problem.
     if (host.identityId == null || host.identityId!.isEmpty) {

@@ -99,6 +99,7 @@ class AppColors extends ThemeExtension<AppColors> {
         return warning;
       case 'pending':
       case 'unknown':
+      case 'paused':
         return textMuted;
       default:
         return info;

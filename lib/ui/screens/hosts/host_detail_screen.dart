@@ -357,6 +357,12 @@ class _ConnectionInfo extends ConsumerWidget {
               value: host.status,
               valueColor: context.colors.status(host.status),
             ),
+            _InfoRow(
+              label: 'Monitoring',
+              value: host.monitoringPaused ? 'Paused' : 'Active',
+              valueColor:
+                  host.monitoringPaused ? context.colors.textMuted : context.colors.success,
+            ),
             if (host.metadata.isNotEmpty) ...[
               const Divider(height: 24),
               Text('Metadata', style: context.text.titleSmall),
@@ -458,6 +464,28 @@ class _Actions extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await ref.read(hostListProvider.notifier).toggleMonitoringPaused(host.id);
+              ref.invalidate(hostDetailProvider(host.id));
+              ref.invalidate(hostsProvider);
+              ref.invalidate(hostStatusCountsProvider);
+            },
+            icon: Icon(
+              host.monitoringPaused ? Icons.play_circle_outline : Icons.pause_circle_outline,
+              size: 18,
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: host.monitoringPaused ? colors.warning : null,
+            ),
+            label: Text(
+              host.monitoringPaused ? 'Resume monitoring' : 'Pause monitoring',
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         SizedBox(

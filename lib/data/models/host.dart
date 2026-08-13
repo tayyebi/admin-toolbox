@@ -14,6 +14,12 @@ class Host {
   final Map<String, String> metadata;
   final String status;
   final DateTime? lastSeen;
+
+  /// When true, the background monitoring loop skips this host — it never
+  /// opens a connection on its own. Manual actions (terminal, files, test
+  /// connection) are unaffected.
+  final bool monitoringPaused;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -31,6 +37,7 @@ class Host {
     this.metadata = const {},
     this.status = 'unknown',
     this.lastSeen,
+    this.monitoringPaused = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -49,6 +56,7 @@ class Host {
     Map<String, String>? metadata,
     String? status,
     DateTime? lastSeen,
+    bool? monitoringPaused,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -66,6 +74,7 @@ class Host {
       metadata: metadata ?? this.metadata,
       status: status ?? this.status,
       lastSeen: lastSeen ?? this.lastSeen,
+      monitoringPaused: monitoringPaused ?? this.monitoringPaused,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -86,6 +95,7 @@ class Host {
       'metadata': encodeStringMap(metadata),
       'status': status,
       'last_seen': lastSeen?.toIso8601String(),
+      'monitoring_paused': monitoringPaused ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -106,6 +116,7 @@ class Host {
       metadata: decodeStringMap(map['metadata'] as String?),
       status: map['status'] as String? ?? 'unknown',
       lastSeen: parseDateOrNull(map['last_seen']),
+      monitoringPaused: (map['monitoring_paused'] as int?) == 1,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

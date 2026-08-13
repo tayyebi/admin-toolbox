@@ -83,11 +83,15 @@ class SshTransportSession implements TransportSession {
     _hostKeyRejection = null;
 
     try {
+      // SSHSocket.connect's own `timeout` only bounds the TCP handshake, not
+      // DNS resolution — a hostname that resolves slowly or never leaves the
+      // caller stuck well past config.connectTimeout with nothing to show for
+      // it. Wrapping the whole call guarantees it gives up on schedule.
       _socket = await SSHSocket.connect(
         config.host,
         config.port,
         timeout: config.connectTimeout,
-      );
+      ).timeout(config.connectTimeout);
 
       final identities = _identitiesFor(config);
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../core/utils/logger.dart';
 import '../models/host.dart';
 import '../models/identity.dart';
+import '../repositories/host_repository.dart';
 import '../repositories/identity_repository.dart';
 import 'ssh_client.dart';
 import 'transport.dart';
@@ -22,6 +23,7 @@ class ConnectionManager {
   final _connecting = <String, Future<TransportSession>>{};
 
   final _identities = IdentityRepository();
+  final _hosts = HostRepository();
 
   /// Asked before trusting an unknown or changed host key. The UI installs
   /// this at startup; when it is null, unknown keys are refused.
@@ -60,7 +62,20 @@ class ConnectionManager {
       final pooled = _PooledSession(session, onIdle: () => _scheduleEviction(host.id));
       _sessions[host.id] = pooled;
       pooled.retain();
+      // Otherwise the status pill only ever moves once background monitoring
+      // (opt-in, off by default) happens to sweep this host — so a host you
+      // can visibly open a terminal on still shows "Unknown" indefinitely.
+      unawaited(_hosts.updateStatus(host.id, 'online'));
       return session;
+    } on MissingIdentityException {
+      unawaited(_hosts.updateStatus(host.id, 'unknown'));
+      rethrow;
+    } on HostKeyRejectedException {
+      // A security decision, not a reachability fact — leave status alone.
+      rethrow;
+    } catch (_) {
+      unawaited(_hosts.updateStatus(host.id, 'offline'));
+      rethrow;
     } finally {
       // The removed value is the same future already awaited above.
       _connecting.remove(host.id)?.ignore();

@@ -25,6 +25,10 @@ class Host {
   /// connection) are unaffected.
   final bool monitoringPaused;
 
+  /// How long to wait for the initial SSH handshake before giving up.
+  /// Configurable per host since latency and network paths vary widely.
+  final int connectTimeoutSeconds;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -44,6 +48,7 @@ class Host {
     this.status = 'unknown',
     this.lastSeen,
     this.monitoringPaused = false,
+    this.connectTimeoutSeconds = 30,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -64,6 +69,7 @@ class Host {
     String? status,
     DateTime? lastSeen,
     bool? monitoringPaused,
+    int? connectTimeoutSeconds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -83,6 +89,7 @@ class Host {
       status: status ?? this.status,
       lastSeen: lastSeen ?? this.lastSeen,
       monitoringPaused: monitoringPaused ?? this.monitoringPaused,
+      connectTimeoutSeconds: connectTimeoutSeconds ?? this.connectTimeoutSeconds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -105,6 +112,7 @@ class Host {
       'status': status,
       'last_seen': lastSeen?.toIso8601String(),
       'monitoring_paused': monitoringPaused ? 1 : 0,
+      'connect_timeout_seconds': connectTimeoutSeconds,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -127,6 +135,7 @@ class Host {
       status: map['status'] as String? ?? 'unknown',
       lastSeen: parseDateOrNull(map['last_seen']),
       monitoringPaused: (map['monitoring_paused'] as int?) == 1,
+      connectTimeoutSeconds: map['connect_timeout_seconds'] as int? ?? 30,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

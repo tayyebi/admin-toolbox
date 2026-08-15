@@ -12,7 +12,9 @@ class AppDatabase {
   /// pause. v3 → v4 moves `username` off the vault identity and onto the
   /// host: the same key or password can be reused under different usernames
   /// on different targets, so it is a target property, not a credential one.
-  static const int schemaVersion = 4;
+  /// v4 → v5 adds a per-host `connect_timeout_seconds`, so slow or
+  /// high-latency hosts don't have to share one global connect timeout.
+  static const int schemaVersion = 5;
 
   static Database? _db;
 
@@ -60,6 +62,7 @@ class AppDatabase {
         status TEXT NOT NULL DEFAULT 'unknown',
         last_seen TEXT,
         monitoring_paused INTEGER NOT NULL DEFAULT 0,
+        connect_timeout_seconds INTEGER NOT NULL DEFAULT 30,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -389,6 +392,15 @@ class AppDatabase {
       ''');
       await db.execute('DROP TABLE identities');
       await db.execute('ALTER TABLE identities_new RENAME TO identities');
+    }
+
+    if (oldVersion < 5) {
+      await _addColumnIfMissing(
+        db,
+        'hosts',
+        'connect_timeout_seconds',
+        'INTEGER NOT NULL DEFAULT 30',
+      );
     }
   }
 

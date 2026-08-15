@@ -110,7 +110,7 @@ class ConnectionManager {
       password: identity.password,
       privateKey: identity.privateKey,
       passphrase: identity.passphrase,
-      connectTimeout: connectTimeout ?? const Duration(seconds: 15),
+      connectTimeout: connectTimeout ?? Duration(seconds: host.connectTimeoutSeconds),
     );
 
     final factory = SshTransportFactory(onHostKeyPrompt: onHostKeyPrompt);

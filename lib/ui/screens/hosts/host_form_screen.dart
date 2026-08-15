@@ -26,6 +26,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   final _hostnameController = TextEditingController();
   final _portController = TextEditingController(text: '22');
   final _usernameController = TextEditingController(text: 'root');
+  final _timeoutController = TextEditingController(text: '30');
   final _notesController = TextEditingController();
   final _tagsController = TextEditingController();
 
@@ -53,6 +54,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     _hostnameController.dispose();
     _portController.dispose();
     _usernameController.dispose();
+    _timeoutController.dispose();
     _notesController.dispose();
     _tagsController.dispose();
     super.dispose();
@@ -67,6 +69,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       _hostnameController.text = host.hostname;
       _portController.text = host.port.toString();
       _usernameController.text = host.username;
+      _timeoutController.text = host.connectTimeoutSeconds.toString();
       _notesController.text = host.notes ?? '';
       _tagsController.text = host.tags.join(', ');
       _identityId = host.identityId;
@@ -90,6 +93,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       username: _usernameController.text.trim().isEmpty ? 'root' : _usernameController.text.trim(),
       identityId: _identityId,
       groupId: _groupId,
+      connectTimeoutSeconds: int.tryParse(_timeoutController.text) ?? 30,
       tags: tags,
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       createdAt: now,
@@ -116,6 +120,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               username: host.username,
               identityId: _identityId,
               groupId: _groupId,
+              connectTimeoutSeconds: host.connectTimeoutSeconds,
               tags: host.tags,
               notes: host.notes,
               updatedAt: DateTime.now(),
@@ -201,7 +206,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
           password: identity.password,
           privateKey: identity.privateKey,
           passphrase: identity.passphrase,
-          connectTimeout: const Duration(seconds: 12),
+          connectTimeout: Duration(seconds: host.connectTimeoutSeconds),
         ),
         onLog: appendLog,
       );
@@ -313,15 +318,39 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            TextFormField(
-              controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                hintText: 'e.g. root, ubuntu, admin',
-              ),
-              autocorrect: false,
-              style: AppTypography.monoStyle(color: context.scheme.onSurface),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: _usernameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Username',
+                      hintText: 'e.g. root, ubuntu, admin',
+                    ),
+                    autocorrect: false,
+                    style: AppTypography.monoStyle(color: context.scheme.onSurface),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _timeoutController,
+                    decoration: const InputDecoration(
+                      labelText: 'Timeout (s)',
+                    ),
+                    keyboardType: TextInputType.number,
+                    style: AppTypography.monoStyle(color: context.scheme.onSurface),
+                    validator: (v) {
+                      final seconds = int.tryParse(v ?? '');
+                      if (seconds == null || seconds < 1 || seconds > 300) return '1–300';
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
 

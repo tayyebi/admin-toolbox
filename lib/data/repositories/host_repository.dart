@@ -61,6 +61,7 @@ class HostRepository {
       status: host.status,
       lastSeen: host.lastSeen,
       monitoringPaused: host.monitoringPaused,
+      connectTimeoutSeconds: host.connectTimeoutSeconds,
       createdAt: host.createdAt != DateTime(0) ? host.createdAt : now,
       updatedAt: now,
     );

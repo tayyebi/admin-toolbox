@@ -106,7 +106,7 @@ class ConnectionManager {
     final config = TransportConnectionConfig(
       host: host.hostname,
       port: host.port,
-      username: identity.username,
+      username: host.username,
       password: identity.password,
       privateKey: identity.privateKey,
       passphrase: identity.passphrase,

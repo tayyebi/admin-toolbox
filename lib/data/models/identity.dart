@@ -31,7 +31,6 @@ class Identity {
     required this.id,
     required this.name,
     required this.type,
-    required this.username,
     this.password,
     this.privateKey,
     this.passphrase,
@@ -50,7 +49,6 @@ class Identity {
   final String id;
   final String name;
   final IdentityType type;
-  final String username;
   final String? password;
   final String? privateKey;
   final String? passphrase;
@@ -90,7 +88,6 @@ class Identity {
     String? id,
     String? name,
     IdentityType? type,
-    String? username,
     String? password,
     String? privateKey,
     String? passphrase,
@@ -109,7 +106,6 @@ class Identity {
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
-      username: username ?? this.username,
       password: password ?? this.password,
       privateKey: privateKey ?? this.privateKey,
       passphrase: passphrase ?? this.passphrase,
@@ -133,7 +129,6 @@ class Identity {
       id: id,
       name: name,
       type: type,
-      username: username,
       certificate: certificate,
       keyType: keyType,
       publicKey: publicKey,
@@ -152,7 +147,6 @@ class Identity {
       'id': id,
       'name': name,
       'type': type.storageValue,
-      'username': username,
       'password': password,
       'private_key': privateKey,
       'passphrase': passphrase,
@@ -174,7 +168,6 @@ class Identity {
       id: map['id'] as String,
       name: map['name'] as String,
       type: IdentityType.parse(map['type'] as String?),
-      username: map['username'] as String,
       password: map['password'] as String?,
       privateKey: map['private_key'] as String?,
       passphrase: map['passphrase'] as String?,
@@ -195,6 +188,6 @@ class Identity {
   /// an error message.
   @override
   String toString() =>
-      'Identity(id: $id, name: $name, type: ${type.storageValue}, username: $username, '
+      'Identity(id: $id, name: $name, type: ${type.storageValue}, '
       'fingerprint: ${fingerprint ?? '-'}, secrets: <redacted>)';
 }

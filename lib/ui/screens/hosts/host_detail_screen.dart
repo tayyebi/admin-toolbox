@@ -329,7 +329,7 @@ class _ConnectionInfo extends ConsumerWidget {
         ? 'None'
         : identities
             .where((i) => i.id == host.identityId)
-            .map((i) => '${i.name} (${i.username})')
+            .map((i) => i.name)
             .firstOrDefault('Missing credential');
 
     final groupName = host.groupId == null
@@ -346,6 +346,7 @@ class _ConnectionInfo extends ConsumerWidget {
             const SizedBox(height: 12),
             _InfoRow(label: 'Hostname', value: host.hostname, mono: true),
             _InfoRow(label: 'Port', value: '${host.port}', mono: true),
+            _InfoRow(label: 'Username', value: host.username, mono: true),
             _InfoRow(label: 'Credential', value: identityName),
             _InfoRow(label: 'Group', value: groupName),
             _InfoRow(

@@ -5,6 +5,11 @@ class Host {
   final String name;
   final String hostname;
   final int port;
+
+  /// The account to authenticate as on this host. A vault identity (SSH key
+  /// or password) can be reused across many hosts under different usernames,
+  /// so this lives on the host, not the credential.
+  final String username;
   final String? groupId;
   final String? identityId;
   final String connectionType;
@@ -28,6 +33,7 @@ class Host {
     required this.name,
     required this.hostname,
     this.port = 22,
+    this.username = 'root',
     this.groupId,
     this.identityId,
     this.connectionType = 'ssh',
@@ -47,6 +53,7 @@ class Host {
     String? name,
     String? hostname,
     int? port,
+    String? username,
     String? groupId,
     String? identityId,
     String? connectionType,
@@ -65,6 +72,7 @@ class Host {
       name: name ?? this.name,
       hostname: hostname ?? this.hostname,
       port: port ?? this.port,
+      username: username ?? this.username,
       groupId: groupId ?? this.groupId,
       identityId: identityId ?? this.identityId,
       connectionType: connectionType ?? this.connectionType,
@@ -86,6 +94,7 @@ class Host {
       'name': name,
       'hostname': hostname,
       'port': port,
+      'username': username,
       'group_id': groupId,
       'identity_id': identityId,
       'connection_type': connectionType,
@@ -107,6 +116,7 @@ class Host {
       name: map['name'] as String,
       hostname: map['hostname'] as String,
       port: map['port'] as int? ?? 22,
+      username: map['username'] as String? ?? 'root',
       groupId: map['group_id'] as String?,
       identityId: map['identity_id'] as String?,
       connectionType: map['connection_type'] as String? ?? 'ssh',
@@ -122,8 +132,8 @@ class Host {
     );
   }
 
-  /// `user@hostname:port`, or `hostname:port` when no identity is attached.
-  String get endpoint => '$hostname:$port';
+  /// `user@hostname:port`.
+  String get endpoint => '$username@$hostname:$port';
 
   @override
   String toString() => 'Host(id: $id, name: $name, endpoint: $endpoint, status: $status)';

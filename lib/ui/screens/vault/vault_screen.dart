@@ -123,13 +123,8 @@ class _IdentityTile extends StatelessWidget {
                         _TypeBadge(label: identity.keyType ?? identity.type.label, color: accent),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      identity.username,
-                      style: AppTypography.monoSmall(colors.textMuted),
-                    ),
                     if (identity.fingerprint != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         identity.shortFingerprint,
                         style: AppTypography.monoSmall(colors.textMuted),

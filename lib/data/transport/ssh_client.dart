@@ -46,10 +46,11 @@ class SshTransportFactory implements TransportFactory {
   TransportType get type => TransportType.ssh;
 
   @override
-  Future<TransportSession> create(TransportConnectionConfig config) async {
+  Future<TransportSession> create(TransportConnectionConfig config, {ConnectionLogCallback? onLog}) async {
     final session = SshTransportSession(
       knownHosts: _knownHosts,
       onHostKeyPrompt: onHostKeyPrompt,
+      onLog: onLog,
     );
     await session.connect(config);
     return session;
@@ -57,11 +58,17 @@ class SshTransportFactory implements TransportFactory {
 }
 
 class SshTransportSession implements TransportSession {
-  SshTransportSession({KnownHostRepository? knownHosts, this.onHostKeyPrompt})
+  SshTransportSession({KnownHostRepository? knownHosts, this.onHostKeyPrompt, this.onLog})
       : _knownHosts = knownHosts ?? KnownHostRepository();
 
   final KnownHostRepository _knownHosts;
   final HostKeyPromptCallback? onHostKeyPrompt;
+  final ConnectionLogCallback? onLog;
+
+  void _log(String message) {
+    logInfo(message);
+    onLog?.call(message);
+  }
 
   SSHSocket? _socket;
   SSHClient? _client;
@@ -79,10 +86,12 @@ class SshTransportSession implements TransportSession {
   bool get isConnected => _connected && _client != null;
 
   Future<void> connect(TransportConnectionConfig config) async {
-    logInfo('Connecting to ${config.username}@${config.host}:${config.port}');
+    _log('Connecting to ${config.username}@${config.host}:${config.port}');
     _hostKeyRejection = null;
 
     try {
+      _log('Opening TCP socket to ${config.host}:${config.port} '
+          '(timeout ${config.connectTimeout.inSeconds}s)');
       // SSHSocket.connect's own `timeout` only bounds the TCP handshake, not
       // DNS resolution — a hostname that resolves slowly or never leaves the
       // caller stuck well past config.connectTimeout with nothing to show for
@@ -92,8 +101,13 @@ class SshTransportSession implements TransportSession {
         config.port,
         timeout: config.connectTimeout,
       ).timeout(config.connectTimeout);
+      _log('TCP socket open');
 
       final identities = _identitiesFor(config);
+      _log(config.privateKey != null && config.privateKey!.isNotEmpty
+          ? 'Starting SSH handshake with ${identities.length} key '
+              '${identities.length == 1 ? 'identity' : 'identities'} offered'
+          : 'Starting SSH handshake (password authentication)');
 
       _client = SSHClient(
         _socket!,
@@ -105,6 +119,7 @@ class SshTransportSession implements TransportSession {
             _verifyHostKey(config, keyType, fingerprint),
       );
 
+      _log('Authenticating as ${config.username}');
       // dartssh2 2.10 has no handshake or auth timeout of its own, so the
       // whole authentication phase is bounded here. Without it a server that
       // accepts the TCP connection and then stalls would hang the caller
@@ -112,7 +127,7 @@ class SshTransportSession implements TransportSession {
       await _client!.authenticated.timeout(config.connectTimeout);
 
       _connected = true;
-      logInfo('Connected to ${config.host}:${config.port}');
+      _log('Connected to ${config.host}:${config.port}');
     } catch (e, stack) {
       _connected = false;
       await _closeQuietly();
@@ -121,10 +136,12 @@ class SshTransportSession implements TransportSession {
       // must not be reported as "connection failed".
       final rejection = _hostKeyRejection;
       if (rejection != null) {
+        _log('Refused host key for ${config.host}:${config.port}');
         logWarning('Refused host key for ${config.host}:${config.port}');
         throw rejection;
       }
 
+      _log('Connection failed: $e');
       logError('SSH connection to ${config.host}:${config.port} failed', e, stack);
       rethrow;
     }
@@ -147,13 +164,16 @@ class SshTransportSession implements TransportSession {
     Uint8List fingerprintBytes,
   ) async {
     final fingerprint = utf8.decode(fingerprintBytes);
+    _log('Server presented $keyType host key ($fingerprint)');
     final check = await _knownHosts.verify(config.host, config.port, fingerprint);
 
     switch (check.verdict) {
       case HostKeyVerdict.trusted:
+        _log('Host key matches the pinned fingerprint');
         return true;
 
       case HostKeyVerdict.unknown:
+        _log('Host key is not yet trusted — asking for a decision');
         final prompt = onHostKeyPrompt;
         if (prompt == null) {
           // No one to ask — refuse rather than trusting silently.
@@ -192,6 +212,7 @@ class SshTransportSession implements TransportSession {
         return false;
 
       case HostKeyVerdict.mismatch:
+        _log('Host key MISMATCH — pinned ${check.pinned?.fingerprint}, got $fingerprint');
         // The pinned key changed. This is either a rebuilt server or an
         // interception; it is never accepted without an explicit override.
         final rejection = HostKeyRejectedException(
@@ -241,9 +262,12 @@ class SshTransportSession implements TransportSession {
     final limit = timeout ?? const Duration(seconds: 30);
     final stopwatch = Stopwatch()..start();
 
+    _log('Running: $command');
     try {
       final result = await _runToCompletion(client, command).timeout(limit);
       stopwatch.stop();
+      _log('Command finished in ${stopwatch.elapsedMilliseconds} ms '
+          '(exit ${result.exitCode})');
       return CommandResult(
         exitCode: result.exitCode,
         stdout: result.stdout,
@@ -521,7 +545,7 @@ class SshTransportSession implements TransportSession {
   Future<void> disconnect() async {
     await _closeQuietly();
     _connected = false;
-    logInfo('SSH session disconnected');
+    _log('SSH session disconnected');
   }
 
   Future<void> _closeQuietly() async {

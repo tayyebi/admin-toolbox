@@ -155,7 +155,12 @@ abstract class TransportSession {
   Future<void> disconnect();
 }
 
+/// Emits a human-readable line as a connection attempt progresses. Used to
+/// drive a live log panel (e.g. "Test connection") rather than relying on
+/// the app log alone.
+typedef ConnectionLogCallback = void Function(String message);
+
 abstract class TransportFactory {
   TransportType get type;
-  Future<TransportSession> create(TransportConnectionConfig config);
+  Future<TransportSession> create(TransportConnectionConfig config, {ConnectionLogCallback? onLog});
 }

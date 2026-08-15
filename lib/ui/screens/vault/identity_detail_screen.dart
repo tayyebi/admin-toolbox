@@ -78,7 +78,7 @@ class _IdentityDetailScreenState extends ConsumerState<IdentityDetailScreen> {
                 Text(identity.name, style: context.text.headlineSmall),
                 const SizedBox(height: 6),
                 Text(
-                  '${identity.type.label} · ${identity.username}',
+                  identity.type.label,
                   style: context.text.bodyMedium,
                 ),
                 if (identity.comment != null) ...[

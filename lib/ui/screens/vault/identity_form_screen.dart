@@ -28,7 +28,6 @@ class IdentityFormScreen extends ConsumerStatefulWidget {
 class _IdentityFormScreenState extends ConsumerState<IdentityFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _privateKeyController = TextEditingController();
   final _passphraseController = TextEditingController();
@@ -59,7 +58,6 @@ class _IdentityFormScreenState extends ConsumerState<IdentityFormScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _usernameController.dispose();
     _passwordController.dispose();
     _privateKeyController.dispose();
     _passphraseController.dispose();
@@ -76,7 +74,6 @@ class _IdentityFormScreenState extends ConsumerState<IdentityFormScreen> {
       if (identity == null || !mounted) return;
 
       _nameController.text = identity.name;
-      _usernameController.text = identity.username;
       _passwordController.text = identity.password ?? '';
       _privateKeyController.text = identity.privateKey ?? '';
       _passphraseController.text = identity.passphrase ?? '';
@@ -198,7 +195,6 @@ class _IdentityFormScreenState extends ConsumerState<IdentityFormScreen> {
         id: widget.identityId ?? const Uuid().v4(),
         name: _nameController.text.trim(),
         type: _type,
-        username: _usernameController.text.trim(),
         password: _type == IdentityType.password ? _passwordController.text : null,
         privateKey: _type == IdentityType.sshKey ? privateKey : null,
         passphrase: _type == IdentityType.sshKey && passphrase.isNotEmpty ? passphrase : null,
@@ -297,18 +293,6 @@ class _IdentityFormScreenState extends ConsumerState<IdentityFormScreen> {
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      hintText: 'e.g. root, ubuntu, admin',
-                    ),
-                    autocorrect: false,
-                    style: AppTypography.monoStyle(color: context.scheme.onSurface),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 20),
 
                   if (_type == IdentityType.password)
                     _buildPasswordFields(colors)

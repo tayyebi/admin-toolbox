@@ -127,7 +127,6 @@ void main() {
         id: 'i1',
         name: 'Admin Key',
         type: IdentityType.sshKey,
-        username: 'admin',
         privateKey: 'PRIVATE_KEY_CONTENT',
         fingerprint: 'SHA256:abcdef',
         createdAt: now,
@@ -137,7 +136,6 @@ void main() {
       final restored = Identity.fromMap(identity.toMap());
       expect(restored.id, 'i1');
       expect(restored.type, IdentityType.sshKey);
-      expect(restored.username, 'admin');
       expect(restored.fingerprint, 'SHA256:abcdef');
     });
 
@@ -147,7 +145,6 @@ void main() {
         'id': 'i1',
         'name': 'n',
         'type': 'ssh_key',
-        'username': 'u',
         'created_at': now,
         'updated_at': now,
       });
@@ -162,7 +159,6 @@ void main() {
         id: 'i1',
         name: 'n',
         type: IdentityType.sshKey,
-        username: 'u',
         password: 'hunter2',
         privateKey: 'KEY',
         passphrase: 'pass',
@@ -185,7 +181,6 @@ void main() {
         id: 'i1',
         name: 'n',
         type: IdentityType.password,
-        username: 'u',
         password: 'hunter2',
         privateKey: 'SUPER_SECRET_KEY',
         createdAt: now,

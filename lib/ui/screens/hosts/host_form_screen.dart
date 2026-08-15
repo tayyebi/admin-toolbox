@@ -25,6 +25,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   final _nameController = TextEditingController();
   final _hostnameController = TextEditingController();
   final _portController = TextEditingController(text: '22');
+  final _usernameController = TextEditingController(text: 'root');
   final _notesController = TextEditingController();
   final _tagsController = TextEditingController();
 
@@ -35,6 +36,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   bool _saving = false;
   bool _testing = false;
   _TestOutcome? _testOutcome;
+  final List<String> _testLog = [];
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     _nameController.dispose();
     _hostnameController.dispose();
     _portController.dispose();
+    _usernameController.dispose();
     _notesController.dispose();
     _tagsController.dispose();
     super.dispose();
@@ -63,6 +66,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       _nameController.text = host.name;
       _hostnameController.text = host.hostname;
       _portController.text = host.port.toString();
+      _usernameController.text = host.username;
       _notesController.text = host.notes ?? '';
       _tagsController.text = host.tags.join(', ');
       _identityId = host.identityId;
@@ -83,6 +87,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       name: _nameController.text.trim(),
       hostname: _hostnameController.text.trim(),
       port: int.tryParse(_portController.text) ?? 22,
+      username: _usernameController.text.trim().isEmpty ? 'root' : _usernameController.text.trim(),
       identityId: _identityId,
       groupId: _groupId,
       tags: tags,
@@ -108,6 +113,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               name: host.name,
               hostname: host.hostname,
               port: host.port,
+              username: host.username,
               identityId: _identityId,
               groupId: _groupId,
               tags: host.tags,
@@ -163,6 +169,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     setState(() {
       _testing = true;
       _testOutcome = null;
+      _testLog.clear();
     });
 
     final manager = ref.read(connectionManagerProvider);
@@ -171,6 +178,11 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
 
     final stopwatch = Stopwatch()..start();
     final host = _buildHost();
+
+    void appendLog(String message) {
+      if (!mounted) return;
+      setState(() => _testLog.add(message));
+    }
 
     try {
       // Bypass the pool: a test should always be a fresh handshake.
@@ -185,12 +197,13 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         TransportConnectionConfig(
           host: host.hostname,
           port: host.port,
-          username: identity.username,
+          username: host.username,
           password: identity.password,
           privateKey: identity.privateKey,
           passphrase: identity.passphrase,
           connectTimeout: const Duration(seconds: 12),
         ),
+        onLog: appendLog,
       );
 
       final result = await session.execute('uname -sr', timeout: const Duration(seconds: 10));
@@ -298,6 +311,18 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                hintText: 'e.g. root, ubuntu, admin',
+              ),
+              autocorrect: false,
+              style: AppTypography.monoStyle(color: context.scheme.onSurface),
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
             const SizedBox(height: 20),
 
             // Without this the app cannot authenticate at all — every host
@@ -330,7 +355,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                       (identity) => DropdownMenuItem(
                         value: identity.id,
                         child: Text(
-                          '${identity.name} · ${identity.username}',
+                          '${identity.name} · ${identity.type.label}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -369,6 +394,28 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   : const Icon(Icons.network_check, size: 18),
               label: Text(_testing ? 'Connecting…' : 'Test connection'),
             ),
+
+            if (_testLog.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 220),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colors.terminalBackground,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Scrollbar(
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      _testLog.join('\n'),
+                      style: AppTypography.monoSmall(colors.terminalForeground),
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
             if (_testOutcome != null) ...[
               const SizedBox(height: 12),

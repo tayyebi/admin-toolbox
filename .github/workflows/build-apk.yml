@@ -46,6 +46,13 @@ jobs:
         continue-on-error: true
         run: dart format --output=none --set-exit-if-changed --line-length 100 lib test
 
+      # Every source file must fit in 100 lines. Reported but not blocking
+      # until the structural split is finished; drop the continue-on-error to
+      # make this a gate once `dart run tool/check_file_length.dart` is clean.
+      - name: Check file length budget
+        continue-on-error: true
+        run: dart run tool/check_file_length.dart
+
       # Errors and warnings block; infos are advisory. The analysis_options
       # promotes the correctness lints that matter to warning level.
       - name: Analyze

@@ -173,7 +173,7 @@ class IdentityRepository {
 
   Future<String?> _openLegacyOrNull(String? value) async {
     if (value == null || value.isEmpty) return null;
-    final plaintext = await _encryption.decryptLegacyValue(value);
+    final plaintext = await _encryption.legacy.decryptValue(value);
     if (plaintext == null) {
       logWarning('Legacy credential could not be decrypted; re-enter it in the vault');
       throw const VaultDecryptException('legacy record is unreadable');

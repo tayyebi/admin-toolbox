@@ -103,7 +103,7 @@ class AppLockController extends StateNotifier<AppLockState> {
 
   Future<void> refresh() async {
     final initialized = await _encryption.isInitialized();
-    final biometricConfigured = await _encryption.isBiometricUnlockConfigured();
+    final biometricConfigured = await _encryption.biometric.isConfigured();
 
     var biometricAvailable = false;
     try {
@@ -203,12 +203,12 @@ class AppLockController extends StateNotifier<AppLockState> {
   }
 
   Future<void> enableBiometricUnlock() async {
-    await _encryption.enableBiometricUnlock();
+    await _encryption.biometric.enable(_encryption.requireDek());
     state = state.copyWith(biometricConfigured: true);
   }
 
   Future<void> disableBiometricUnlock() async {
-    await _encryption.disableBiometricUnlock();
+    await _encryption.biometric.disable();
     state = state.copyWith(biometricConfigured: false);
   }
 

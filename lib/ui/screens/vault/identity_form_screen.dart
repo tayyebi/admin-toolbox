@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/crypto/encryption.dart';
 import '../../../core/crypto/ssh_key_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -321,7 +322,7 @@ class _IdentityFormScreenState extends ConsumerState<IdentityFormScreen> {
                   icon: const Icon(Icons.casino_outlined, size: 20),
                   onPressed: () {
                     _passwordController.text =
-                        ref.read(encryptionServiceProvider).generatePassword();
+                        generatePassword();
                     setState(() => _obscureSecret = false);
                   },
                 ),

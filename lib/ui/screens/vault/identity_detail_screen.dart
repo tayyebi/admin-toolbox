@@ -276,31 +276,48 @@ class _IdentityDetailScreenState extends ConsumerState<IdentityDetailScreen> {
 
   Future<bool> _confirmWithPassword() async {
     final controller = TextEditingController();
+    var isProcessing = false;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirm it is you'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Master password'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Confirm it is you'),
+          content: TextField(
+            controller: controller,
+            obscureText: true,
+            autofocus: true,
+            enabled: !isProcessing,
+            decoration: const InputDecoration(labelText: 'Master password'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isProcessing
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isProcessing
+                  ? null
+                  : () async {
+                      setDialogState(() => isProcessing = true);
+                      final ok = await ref
+                          .read(encryptionServiceProvider)
+                          .unlock(controller.text);
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext, ok);
+                      }
+                    },
+              child: isProcessing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Reveal'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final ok = await ref
-                  .read(encryptionServiceProvider)
-                  .unlock(controller.text);
-              if (dialogContext.mounted) Navigator.pop(dialogContext, ok);
-            },
-            child: const Text('Reveal'),
-          ),
-        ],
       ),
     );
     controller.dispose();

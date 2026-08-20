@@ -9,6 +9,7 @@ import '../../core/security/secure_display.dart';
 import '../../core/settings/app_settings.dart';
 import '../../providers/providers.dart';
 import '../routes.dart';
+import 'shell_destinations.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});
@@ -75,38 +76,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           if (index == selectedIndex) return;
           context.go(shellRoutes[index]);
         },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.dns_outlined),
-            selectedIcon: Icon(Icons.dns),
-            label: 'Hosts',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.key_outlined),
-            selectedIcon: Icon(Icons.key),
-            label: 'Vault',
-          ),
-          NavigationDestination(
-            icon: alertCount > 0
-                ? Badge(
-                    label: Text('$alertCount'),
-                    child: const Icon(Icons.monitor_heart_outlined),
-                  )
-                : const Icon(Icons.monitor_heart_outlined),
-            selectedIcon: const Icon(Icons.monitor_heart),
-            label: 'Monitor',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.more_horiz_outlined),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: 'More',
-          ),
-        ],
+        destinations: shellDestinations(alertCount),
       ),
     );
   }

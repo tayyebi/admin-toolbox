@@ -1,3 +1,4 @@
+import '../../data/models/identity.dart';
 import '../../data/repositories/identity_repository.dart';
 import '../utils/logger.dart';
 import 'encryption.dart';
@@ -22,7 +23,7 @@ class VaultMigrationService {
 
     final pending = await _identities.getPendingMigration();
     if (pending.isEmpty) {
-      await _encryption.clearLegacyVault();
+      await _encryption.legacy.clear();
       return const VaultMigrationResult(migrated: 0, failed: 0);
     }
 
@@ -48,7 +49,7 @@ class VaultMigrationService {
     }
 
     if (failed == 0) {
-      await _encryption.clearLegacyVault();
+      await _encryption.legacy.clear();
     }
 
     logInfo('Vault migration complete: $migrated migrated, $failed failed');
@@ -57,7 +58,7 @@ class VaultMigrationService {
 
   Future<String?> _recover(String? sealed) async {
     if (sealed == null || sealed.isEmpty) return null;
-    final plaintext = await _encryption.decryptLegacyValue(sealed);
+    final plaintext = await _encryption.legacy.decryptValue(sealed);
     if (plaintext == null) {
       throw const VaultDecryptException('legacy record could not be recovered');
     }

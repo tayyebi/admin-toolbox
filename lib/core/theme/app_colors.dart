@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+export 'semantic_colors.dart';
+export 'theme_context.dart';
+
 /// Semantic colors that Material's [ColorScheme] has no slot for.
 ///
-/// Registered as a [ThemeExtension] so every value resolves correctly in both
-/// light and dark mode. Read it through `context.colors` rather than reaching
-/// for constants, otherwise light mode silently inherits dark surfaces.
+/// A [ThemeExtension], so values resolve in both brightnesses. Read it through
+/// `context.colors` — reaching for the constants is how light mode silently
+/// inherits dark surfaces.
 @immutable
 class AppColors extends ThemeExtension<AppColors> {
   const AppColors({
@@ -23,19 +26,14 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color warning;
   final Color danger;
   final Color info;
-
   /// Hairline dividers and card outlines.
   final Color border;
-
   /// De-emphasised text: timestamps, captions, disabled labels.
   final Color textMuted;
-
   /// Recessed surfaces: input fills, path bars, table headers.
   final Color surfaceMuted;
-
   final Color terminalBackground;
   final Color terminalForeground;
-
   static const AppColors dark = AppColors(
     success: Color(0xFF3FB950),
     warning: Color(0xFFD29922),
@@ -47,7 +45,6 @@ class AppColors extends ThemeExtension<AppColors> {
     terminalBackground: Color(0xFF0D1117),
     terminalForeground: Color(0xFFE6EDF3),
   );
-
   static const AppColors light = AppColors(
     success: Color(0xFF1A7F37),
     warning: Color(0xFF9A6700),
@@ -59,59 +56,6 @@ class AppColors extends ThemeExtension<AppColors> {
     terminalBackground: Color(0xFF0D1117),
     terminalForeground: Color(0xFFE6EDF3),
   );
-
-  /// Colour for an alert or incident severity label.
-  Color severity(String value) {
-    switch (value.toLowerCase()) {
-      case 'critical':
-        return danger;
-      case 'warning':
-      case 'high':
-      case 'medium':
-        return warning;
-      case 'info':
-      case 'low':
-        return info;
-      case 'success':
-      case 'ok':
-        return success;
-      default:
-        return textMuted;
-    }
-  }
-
-  /// Colour for a host or service status label.
-  Color status(String value) {
-    switch (value.toLowerCase()) {
-      case 'online':
-      case 'active':
-      case 'running':
-      case 'healthy':
-      case 'resolved':
-        return success;
-      case 'offline':
-      case 'stopped':
-      case 'critical':
-      case 'failed':
-        return danger;
-      case 'warning':
-      case 'degraded':
-        return warning;
-      case 'pending':
-      case 'unknown':
-      case 'paused':
-        return textMuted;
-      default:
-        return info;
-    }
-  }
-
-  /// Colour for a 0-100 health score.
-  Color health(int score) {
-    if (score >= 80) return success;
-    if (score >= 50) return warning;
-    return danger;
-  }
 
   @override
   AppColors copyWith({
@@ -153,12 +97,4 @@ class AppColors extends ThemeExtension<AppColors> {
       terminalForeground: Color.lerp(terminalForeground, other.terminalForeground, t)!,
     );
   }
-}
-
-/// Theme lookups, kept short because they appear on nearly every widget.
-extension ThemeContext on BuildContext {
-  AppColors get colors => Theme.of(this).extension<AppColors>() ?? AppColors.dark;
-  ColorScheme get scheme => Theme.of(this).colorScheme;
-  TextTheme get text => Theme.of(this).textTheme;
-  bool get isDark => Theme.of(this).brightness == Brightness.dark;
 }

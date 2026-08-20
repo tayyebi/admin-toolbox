@@ -265,7 +265,7 @@ class _RulesTab extends ConsumerWidget {
                   value: collectorId,
                   decoration: const InputDecoration(labelText: 'Metric'),
                   items: [
-                    for (final id in CollectorRegistry.knownMetricIds)
+                    for (final id in knownMetricIds)
                       DropdownMenuItem(value: id, child: Text(id)),
                   ],
                   onChanged: (value) => setState(() => collectorId = value!),

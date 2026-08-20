@@ -10,8 +10,9 @@ abstract final class LockAttemptPolicy {
   static const int freeAttempts = 3;
 
   /// 5s, 10s, 20s, 40s … capped at five minutes.
-  static Duration? lockoutAfter(int attempts) {
+  static DateTime? lockoutUntil(int attempts, {DateTime? now}) {
     if (attempts <= freeAttempts) return null;
-    return Duration(seconds: math.min(5 * (1 << (attempts - freeAttempts - 1)), 300));
+    final seconds = math.min(5 * (1 << (attempts - freeAttempts - 1)), 300);
+    return (now ?? DateTime.now()).add(Duration(seconds: seconds));
   }
 }

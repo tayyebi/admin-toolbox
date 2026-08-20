@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+export 'settings_controller.dart';
+export 'settings_keys.dart';
+
 /// User preferences, persisted to [SharedPreferences].
 ///
 /// Nothing secret lives here — credentials and the vault key go through
@@ -69,6 +72,3 @@ class AppSettings {
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('sharedPreferencesProvider must be overridden in main()');
 });
-
-export 'settings_controller.dart';
-export 'settings_keys.dart';

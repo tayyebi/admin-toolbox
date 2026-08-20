@@ -4,7 +4,6 @@ import 'package:local_auth/local_auth.dart';
 import '../crypto/encryption.dart';
 import '../settings/app_settings.dart';
 import 'app_lock_controller.dart';
-import 'app_lock_state.dart';
 
 final localAuthProvider = Provider<LocalAuthentication>((ref) => LocalAuthentication());
 

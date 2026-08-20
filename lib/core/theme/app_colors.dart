@@ -34,7 +34,6 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color surfaceMuted;
   final Color terminalBackground;
   final Color terminalForeground;
-
   static const AppColors dark = AppColors(
     success: Color(0xFF3FB950),
     warning: Color(0xFFD29922),
@@ -46,7 +45,6 @@ class AppColors extends ThemeExtension<AppColors> {
     terminalBackground: Color(0xFF0D1117),
     terminalForeground: Color(0xFFE6EDF3),
   );
-
   static const AppColors light = AppColors(
     success: Color(0xFF1A7F37),
     warning: Color(0xFF9A6700),
@@ -57,6 +55,8 @@ class AppColors extends ThemeExtension<AppColors> {
     surfaceMuted: Color(0xFFF6F8FA),
     terminalBackground: Color(0xFF0D1117),
     terminalForeground: Color(0xFFE6EDF3),
+  );
+
   @override
   AppColors copyWith({
     Color? success,

@@ -24,7 +24,7 @@ AppLockState afterUnlockAttempt(
       return current.copyWith(
         busy: false,
         failedAttempts: attempts,
-        lockoutUntil: LockAttemptPolicy.lockoutAfter(attempts),
+        lockoutUntil: LockAttemptPolicy.lockoutUntil(attempts),
         error: 'Incorrect master password.',
       );
 

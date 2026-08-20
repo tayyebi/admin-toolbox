@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/security/app_lock_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/providers.dart';
+import '../../widgets/reauth_gate.dart';
 
 /// The sections that do not earn a permanent slot in a five-item bottom bar.
 class MoreScreen extends ConsumerWidget {
@@ -64,6 +65,18 @@ class MoreScreen extends ConsumerWidget {
                 icon: Icons.receipt_long_outlined,
                 label: 'Audit log',
                 onTap: () => context.push('/audit'),
+              ),
+              _Entry(
+                icon: Icons.bug_report_outlined,
+                label: 'App logs',
+                onTap: () async {
+                  if (!await requireReauth(context, ref)) return;
+                  if (!context.mounted) return;
+                  await ref
+                      .read(auditRepositoryProvider)
+                      .log(action: 'view_app_logs', entityType: 'app_log');
+                  if (context.mounted) context.push('/logs');
+                },
               ),
               _Entry(
                 icon: Icons.lock_outline,

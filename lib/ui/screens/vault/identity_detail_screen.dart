@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/crypto/ssh_key_service.dart';
-import '../../../core/security/app_lock_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/extensions.dart';
@@ -13,6 +12,7 @@ import '../../../data/models/identity.dart';
 import '../../../data/repositories/identity_repository.dart';
 import '../../../providers/providers.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/reauth_gate.dart';
 
 class IdentityDetailScreen extends ConsumerStatefulWidget {
   const IdentityDetailScreen({super.key, required this.identityId});
@@ -239,17 +239,8 @@ class _IdentityDetailScreenState extends ConsumerState<IdentityDetailScreen> {
   }
 
   Future<void> _reveal(Identity identity) async {
-    final lock = ref.read(appLockProvider);
-
-    // A stale unlocked session should not be enough — confirm it is still the
-    // owner in front of the device.
-    if (lock.canUseBiometrics) {
-      final ok = await ref.read(appLockProvider.notifier).unlockWithBiometrics();
-      if (!ok) return;
-    } else {
-      final confirmed = await _confirmWithPassword();
-      if (!confirmed) return;
-    }
+    if (!await requireReauth(context, ref)) return;
+    if (!mounted) return;
 
     try {
       final full = await ref.read(identityRepositoryProvider).getById(identity.id);
@@ -272,56 +263,6 @@ class _IdentityDetailScreenState extends ConsumerState<IdentityDetailScreen> {
     } catch (e) {
       if (mounted) _showMessage('Could not decrypt: $e');
     }
-  }
-
-  Future<bool> _confirmWithPassword() async {
-    final controller = TextEditingController();
-    var isProcessing = false;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Confirm it is you'),
-          content: TextField(
-            controller: controller,
-            obscureText: true,
-            autofocus: true,
-            enabled: !isProcessing,
-            decoration: const InputDecoration(labelText: 'Master password'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: isProcessing
-                  ? null
-                  : () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: isProcessing
-                  ? null
-                  : () async {
-                      setDialogState(() => isProcessing = true);
-                      final ok = await ref
-                          .read(encryptionServiceProvider)
-                          .unlock(controller.text);
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext, ok);
-                      }
-                    },
-              child: isProcessing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Reveal'),
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-    return confirmed ?? false;
   }
 
   Future<void> _showInstallCommand(Identity identity) async {

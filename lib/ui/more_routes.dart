@@ -10,6 +10,7 @@ import 'screens/commands/commands_screen.dart';
 import 'screens/groups/groups_screen.dart';
 import 'screens/incidents/incident_detail_screen.dart';
 import 'screens/incidents/incidents_screen.dart';
+import 'screens/logs/app_log_screen.dart';
 import 'screens/settings/settings_screen.dart';
 
 /// Everything reached from the More tab.
@@ -18,6 +19,7 @@ final List<RouteBase> moreRoutes = [
       GoRoute(path: '/groups', builder: (context, state) => const GroupsScreen()),
       GoRoute(path: '/alerts', builder: (context, state) => const AlertsScreen()),
       GoRoute(path: '/audit', builder: (context, state) => const AuditLogScreen()),
+      GoRoute(path: '/logs', builder: (context, state) => const AppLogScreen()),
       GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
 
       GoRoute(

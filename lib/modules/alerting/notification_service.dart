@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../core/utils/logger.dart';
 import '../../data/models/alert.dart';
+import 'alert_notification_style.dart';
 
 /// Local notifications for alerts.
 ///
@@ -57,8 +58,8 @@ class NotificationService {
         _channelId,
         _channelName,
         channelDescription: 'Threshold breaches detected on monitored hosts',
-        importance: _importanceFor(alert.severity),
-        priority: _priorityFor(alert.severity),
+        importance: importanceFor(alert.severity),
+        priority: priorityFor(alert.severity),
         styleInformation: BigTextStyleInformation(alert.message ?? ''),
       ),
     );
@@ -79,29 +80,5 @@ class NotificationService {
   Future<void> cancelAll() async {
     if (!_initialized) return;
     await _plugin.cancelAll();
-  }
-
-  static Importance _importanceFor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'critical':
-        return Importance.max;
-      case 'warning':
-      case 'high':
-        return Importance.high;
-      default:
-        return Importance.defaultImportance;
-    }
-  }
-
-  static Priority _priorityFor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'critical':
-        return Priority.max;
-      case 'warning':
-      case 'high':
-        return Priority.high;
-      default:
-        return Priority.defaultPriority;
-    }
   }
 }

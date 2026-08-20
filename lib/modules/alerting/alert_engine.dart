@@ -5,18 +5,18 @@ import '../../data/models/alert.dart';
 import '../../data/models/host.dart';
 import '../../data/models/metric.dart';
 import '../../data/repositories/alert_repository.dart';
+import 'alert_condition.dart';
+import 'alert_selectors.dart';
 import 'notification_service.dart';
+
+export 'alert_condition.dart';
+export 'alert_selectors.dart';
 
 /// Evaluates alert rules against freshly collected metrics.
 ///
-/// The rules table and the alert actions existed already; nothing evaluated
-/// them, so no alert was ever raised. Three behaviours matter here and none of
-/// them are optional in practice:
-///
-///  * **Deduplication** — a CPU stuck at 95% must produce one alert, not one
-///    per collection cycle every minute.
-///  * **Auto-resolution** — when the metric recovers, the alert closes itself.
-///  * **Silencing** — a silenced alert stays silent until its window expires.
+/// Three behaviours matter and none are optional in practice: **deduplication**
+/// (a CPU stuck at 95% raises one alert, not one per cycle), **auto-resolution**
+/// (the alert closes itself when the metric recovers), and **silencing**.
 class AlertEngine {
   AlertEngine({
     AlertRepository? alerts,
@@ -44,7 +44,7 @@ class AlertEngine {
     final raised = <Alert>[];
 
     for (final rule in rules) {
-      final metric = _latestFor(metrics, rule.collectorId);
+      final metric = latestMetricFor(metrics, rule.collectorId);
       if (metric == null) continue;
 
       final value = metric.numericValue;
@@ -56,7 +56,7 @@ class AlertEngine {
         continue;
       }
 
-      final breached = _evaluateCondition(rule.condition, value, threshold);
+      final breached = evaluateAlertCondition(rule.condition, value, threshold);
       final existing = _findExisting(active, rule.id);
 
       if (breached && existing == null) {
@@ -76,7 +76,7 @@ class AlertEngine {
         await _alerts.insert(alert);
         raised.add(alert);
 
-        if (notify && !_isSilenced(alert)) {
+        if (notify && !isAlertSilenced(alert)) {
           await _notifications.showAlert(alert);
         }
       } else if (!breached && existing != null) {
@@ -96,54 +96,4 @@ class AlertEngine {
     }
     return null;
   }
-
-  static bool _isSilenced(Alert alert) {
-    final until = alert.silencedUntil;
-    return until != null && DateTime.now().isBefore(until);
-  }
-
-  static Metric? _latestFor(List<Metric> metrics, String collectorId) {
-    Metric? latest;
-    for (final metric in metrics) {
-      if (metric.collectorId != collectorId) continue;
-      if (latest == null || metric.timestamp.isAfter(latest.timestamp)) {
-        latest = metric;
-      }
-    }
-    return latest;
-  }
-
-  /// Supports the operators an alert rule can express.
-  static bool _evaluateCondition(String condition, double value, double threshold) {
-    switch (condition.trim()) {
-      case '>':
-      case 'gt':
-      case 'above':
-        return value > threshold;
-      case '>=':
-      case 'gte':
-        return value >= threshold;
-      case '<':
-      case 'lt':
-      case 'below':
-        return value < threshold;
-      case '<=':
-      case 'lte':
-        return value <= threshold;
-      case '==':
-      case 'eq':
-      case 'equals':
-        return value == threshold;
-      case '!=':
-      case 'ne':
-        return value != threshold;
-      default:
-        logWarning('Unknown alert condition "$condition"; treating as no-op');
-        return false;
-    }
-  }
-
-  /// Exposed for tests and for the rule editor's live preview.
-  static bool testCondition(String condition, double value, double threshold) =>
-      _evaluateCondition(condition, value, threshold);
 }

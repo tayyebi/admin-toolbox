@@ -1,7 +1,5 @@
 import '../../core/database/database.dart';
 import '../models/audit_entry.dart';
-import 'audit_chain_status.dart';
-import 'audit_entry_hash.dart';
 import 'audit_repository.dart';
 
 extension AuditChain on AuditRepository {

@@ -93,9 +93,9 @@ class SettingsScreen extends ConsumerWidget {
                     ? (enabled) async {
                         final lockController = ref.read(appLockProvider.notifier);
                         if (enabled) {
-                          await lockController.enableBiometricUnlock();
+                          await lockController.setBiometricUnlock(true);
                         } else {
-                          await lockController.disableBiometricUnlock();
+                          await lockController.setBiometricUnlock(false);
                         }
                         await controller.setBiometricUnlock(enabled);
                       }

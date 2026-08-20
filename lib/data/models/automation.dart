@@ -1,5 +1,4 @@
 import '../../core/utils/json_codec.dart';
-
 import 'automation_step.dart';
 
 export 'automation_copy.dart';

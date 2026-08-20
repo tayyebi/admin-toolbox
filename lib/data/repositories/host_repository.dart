@@ -1,11 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+
 import '../../core/database/database.dart';
 import '../models/host.dart';
 
 export 'host_counts.dart';
 export 'host_state.dart';
-
 
 class HostRepository {
   final _uuid = const Uuid();

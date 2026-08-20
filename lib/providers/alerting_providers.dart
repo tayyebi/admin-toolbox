@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/models/alert.dart';
 import '../data/models/incident.dart';
 import 'repository_providers.dart';
-
 
 final alertsProvider = FutureProvider<List<Alert>>((ref) async {
   return ref.watch(alertRepositoryProvider).getAll(status: 'active');

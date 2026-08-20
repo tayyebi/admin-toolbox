@@ -1,10 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+
 import '../../core/database/database.dart';
 import '../models/alert.dart';
 
 export 'alert_rule_repository.dart';
-
 
 class AlertRepository {
   final _uuid = const Uuid();

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/models/metric.dart';
 import '../modules/monitoring/monitoring_service.dart';
 import 'repository_providers.dart';

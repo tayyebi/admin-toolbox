@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/models/group.dart';
 import '../data/models/host.dart';
 import '../data/repositories/host_repository.dart';

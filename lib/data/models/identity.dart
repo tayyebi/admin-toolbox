@@ -1,5 +1,4 @@
 import '../../core/utils/json_codec.dart';
-
 import 'identity_type.dart';
 
 export 'identity_codec.dart';

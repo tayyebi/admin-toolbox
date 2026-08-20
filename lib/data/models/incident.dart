@@ -1,5 +1,4 @@
 import '../../core/utils/json_codec.dart';
-
 import 'incident_timeline_entry.dart';
 
 export 'incident_timeline_entry.dart';

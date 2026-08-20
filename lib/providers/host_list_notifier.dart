@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/models/host.dart';
-import '../data/repositories/host_repository.dart';
-import '../data/repositories/audit_repository.dart';
-import 'repository_providers.dart';
 
+import '../data/models/host.dart';
+import '../data/repositories/audit_repository.dart';
+import '../data/repositories/host_repository.dart';
+import 'repository_providers.dart';
 
 // --- host list mutations ---------------------------------------------------
 

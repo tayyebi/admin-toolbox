@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 export 'empty_state.dart';
 export 'loading_view.dart';
 
-
 /// Standard failure state.
 ///
 /// Replaces the `Text('Error: $e')` that used to appear in a dozen screens —

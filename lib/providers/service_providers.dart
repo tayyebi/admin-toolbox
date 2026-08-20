@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/crypto/encryption.dart';
 import '../core/crypto/vault_migration.dart';
 import '../data/transport/connection_manager.dart';

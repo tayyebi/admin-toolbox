@@ -1,7 +1,6 @@
 import '../../data/models/host.dart';
 import '../../data/models/metric.dart';
 import '../../data/repositories/metric_repository.dart';
-import 'health_score.dart';
 import 'monitoring_service.dart';
 
 /// Reads of what collection has already stored.

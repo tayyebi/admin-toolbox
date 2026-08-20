@@ -20,8 +20,9 @@ class AppDatabase {
 
   /// v2 adds the SSH key vault columns, known-hosts pinning, automation run
   /// history and the audit hash chain. v3 adds per-host monitoring pause. v4
-  /// moves `username` onto the host. v5 adds a per-host connect timeout.
-  static const int schemaVersion = 5;
+  /// moves `username` onto the host. v5 adds a per-host connect timeout. v6
+  /// adds the persisted application log.
+  static const int schemaVersion = 6;
 
   static Database? _db;
 

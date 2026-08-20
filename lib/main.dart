@@ -9,6 +9,7 @@ import 'app.dart';
 import 'core/database/database.dart';
 import 'core/settings/app_settings.dart';
 import 'core/utils/logger.dart';
+import 'data/repositories/log_repository.dart';
 import 'startup_failure_app.dart';
 
 void main() {
@@ -29,6 +30,7 @@ void main() {
       try {
         final prefs = await SharedPreferences.getInstance();
         await AppDatabase.instance.initialize();
+        logSink = (level, message) => unawaited(LogRepository().add(level, message));
 
         runApp(
           ProviderScope(

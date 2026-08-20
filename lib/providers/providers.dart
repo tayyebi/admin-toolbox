@@ -8,6 +8,7 @@ export 'audit_providers.dart';
 export 'host_list_notifier.dart';
 export 'host_providers.dart';
 export 'library_providers.dart';
+export 'log_providers.dart';
 export 'monitoring_providers.dart';
 export 'repository_providers.dart';
 export 'service_providers.dart';

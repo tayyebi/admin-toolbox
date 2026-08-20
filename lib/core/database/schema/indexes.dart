@@ -5,6 +5,7 @@ const indexStatements = <String>[
   'CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp)',
   'CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, host_id)',
   'CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)',
+  'CREATE INDEX IF NOT EXISTS idx_app_log_timestamp ON app_log(timestamp)',
   'CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_id)',
   'CREATE INDEX IF NOT EXISTS idx_hosts_identity ON hosts(identity_id)',
   'CREATE INDEX IF NOT EXISTS idx_known_hosts_lookup ON known_hosts(hostname, port)',

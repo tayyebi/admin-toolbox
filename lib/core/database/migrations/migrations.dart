@@ -5,6 +5,7 @@ import 'v2.dart';
 import 'v3.dart';
 import 'v4.dart';
 import 'v5.dart';
+import 'v6.dart';
 
 export 'add_column.dart';
 
@@ -18,6 +19,7 @@ const _steps = <int, Future<void> Function(Database)>{
   3: migrateToV3,
   4: migrateToV4,
   5: migrateToV5,
+  6: migrateToV6,
 };
 
 Future<void> runMigrations(Database db, int oldVersion, int newVersion) async {

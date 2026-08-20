@@ -9,6 +9,7 @@ import '../data/repositories/host_repository.dart';
 import '../data/repositories/identity_repository.dart';
 import '../data/repositories/incident_repository.dart';
 import '../data/repositories/known_host_repository.dart';
+import '../data/repositories/log_repository.dart';
 import '../data/repositories/metric_repository.dart';
 
 final hostRepositoryProvider = Provider<HostRepository>((ref) => HostRepository());
@@ -23,3 +24,4 @@ final automationRepositoryProvider =
     Provider<AutomationRepository>((ref) => AutomationRepository());
 final commandRepositoryProvider = Provider<CommandRepository>((ref) => CommandRepository());
 final auditRepositoryProvider = Provider<AuditRepository>((ref) => AuditRepository());
+final logRepositoryProvider = Provider<LogRepository>((ref) => LogRepository());

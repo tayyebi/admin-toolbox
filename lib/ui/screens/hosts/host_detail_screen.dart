@@ -421,7 +421,7 @@ class _ActionsState extends ConsumerState<_Actions> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final host = widget.host;
     final canConnect = host.identityId != null;
@@ -560,6 +560,7 @@ class _ActionsState extends ConsumerState<_Actions> {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final host = widget.host;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(

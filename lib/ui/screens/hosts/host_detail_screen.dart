@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -378,14 +381,49 @@ class _ConnectionInfo extends ConsumerWidget {
   }
 }
 
-class _Actions extends ConsumerWidget {
+class _Actions extends ConsumerStatefulWidget {
   const _Actions({required this.host});
 
   final Host host;
 
   @override
+  ConsumerState<_Actions> createState() => _ActionsState();
+}
+
+class _ActionsState extends ConsumerState<_Actions> {
+  bool _pinging = false;
+
+  Future<void> _ping() async {
+    setState(() => _pinging = true);
+    final host = widget.host;
+    final stopwatch = Stopwatch()..start();
+    String message;
+    Color color;
+    try {
+      final socket = await Socket.connect(
+        host.hostname,
+        host.port,
+        timeout: const Duration(seconds: 5),
+      );
+      socket.destroy();
+      stopwatch.stop();
+      message = '${host.name} is reachable (${stopwatch.elapsedMilliseconds} ms)';
+      color = context.colors.success;
+    } catch (_) {
+      message = '${host.name} is unreachable';
+      color = context.colors.danger;
+    }
+    if (!mounted) return;
+    setState(() => _pinging = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
+  }
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final host = widget.host;
     final canConnect = host.identityId != null;
 
     return Column(
@@ -438,6 +476,21 @@ class _Actions extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _pinging ? null : _ping,
+            icon: _pinging
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.network_ping, size: 18),
+            label: Text(_pinging ? 'Pinging…' : 'Ping'),
+          ),
         ),
         const SizedBox(height: 8),
         Row(

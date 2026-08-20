@@ -1,88 +1,83 @@
 import 'dart:async';
 
-import '../../core/utils/logger.dart';
 import '../models/host.dart';
-import '../models/identity.dart';
-import '../repositories/host_repository.dart';
-import '../repositories/identity_repository.dart';
-import 'ssh_client.dart';
-import 'transport.dart';
+import 'connection_pool.dart';
+import 'host_status_reporter.dart';
+import 'session_opener.dart';
+import 'ssh/host_key_prompt.dart';
+import 'transport_session.dart';
+
+export 'connection_pool.dart';
+export 'host_status_reporter.dart';
+export 'missing_identity_exception.dart';
+export 'session_opener.dart';
 
 /// The single owner of live SSH sessions.
 ///
 /// Monitoring, the terminal, the file browser and the automation engine all
-/// want a connection to the same host. Previously each kept its own map and
-/// never evicted, so a long-running app accumulated sockets until the server
-/// or the OS refused more. Sessions are pooled per host, reference-counted
-/// while in use, and dropped once idle.
+/// want a connection to the same host. Sessions are pooled per host,
+/// reference-counted while in use, and dropped once idle.
 class ConnectionManager {
   ConnectionManager._();
   static final ConnectionManager instance = ConnectionManager._();
 
-  final _sessions = <String, _PooledSession>{};
+  final pool = ConnectionPool();
+  final _opener = SessionOpener();
+  final _status = HostStatusReporter();
   final _connecting = <String, Future<TransportSession>>{};
-
-  final _identities = IdentityRepository();
-  final _hosts = HostRepository();
 
   /// Asked before trusting an unknown or changed host key. The UI installs
   /// this at startup; when it is null, unknown keys are refused.
   HostKeyPromptCallback? onHostKeyPrompt;
 
-  /// How long an unused session is kept before being closed.
-  Duration idleTimeout = const Duration(minutes: 5);
+  Duration get idleTimeout => pool.idleTimeout;
+  set idleTimeout(Duration value) => pool.idleTimeout = value;
 
-  /// Borrows a session, opening one if needed.
-  ///
-  /// Callers must [release] when finished, ideally via [withSession].
+  bool isConnected(String hostId) => pool.isConnected(hostId);
+
+  /// Borrows a session, opening one if needed. Callers must [release] when
+  /// finished, ideally via [withSession].
   Future<TransportSession> acquire(Host host, {Duration? connectTimeout}) async {
-    final existing = _sessions[host.id];
+    final existing = pool[host.id];
     if (existing != null) {
       if (existing.session.isConnected) {
         existing.retain();
         return existing.session;
       }
       // Dead socket: drop it and reconnect below.
-      await _dispose(host.id);
+      await pool.dispose(host.id);
     }
 
     // Collapse concurrent requests for the same host into one handshake.
     final inFlight = _connecting[host.id];
     if (inFlight != null) {
       final session = await inFlight;
-      _sessions[host.id]?.retain();
+      pool[host.id]?.retain();
       return session;
     }
 
-    final future = _open(host, connectTimeout: connectTimeout);
+    return _openAndPool(host, connectTimeout);
+  }
+
+  Future<TransportSession> _openAndPool(Host host, Duration? connectTimeout) async {
+    final future = _opener.open(
+      host,
+      connectTimeout: connectTimeout,
+      onHostKeyPrompt: onHostKeyPrompt,
+    );
     _connecting[host.id] = future;
 
     try {
-      final session = await future;
-      final pooled = _PooledSession(session, onIdle: () => _scheduleEviction(host.id));
-      _sessions[host.id] = pooled;
-      pooled.retain();
-      // Otherwise the status pill only ever moves once background monitoring
-      // (opt-in, off by default) happens to sweep this host — so a host you
-      // can visibly open a terminal on still shows "Unknown" indefinitely.
-      unawaited(_hosts.updateStatus(host.id, 'online'));
+      final session = await _status.record(host.id, future);
+      pool.add(host.id, session);
       return session;
-    } on MissingIdentityException {
-      unawaited(_hosts.updateStatus(host.id, 'unknown'));
-      rethrow;
-    } on HostKeyRejectedException {
-      // A security decision, not a reachability fact — leave status alone.
-      rethrow;
-    } catch (_) {
-      unawaited(_hosts.updateStatus(host.id, 'offline'));
-      rethrow;
     } finally {
       // The removed value is the same future already awaited above.
       _connecting.remove(host.id)?.ignore();
     }
   }
 
-  void release(Host host) => _sessions[host.id]?.release();
+  void release(Host host) => pool.release(host.id);
 
   /// Borrow, use, release — including when [action] throws.
   Future<T> withSession<T>(
@@ -98,100 +93,7 @@ class ConnectionManager {
     }
   }
 
-  bool isConnected(String hostId) => _sessions[hostId]?.session.isConnected ?? false;
+  Future<void> disconnect(String hostId) => pool.dispose(hostId);
 
-  Future<TransportSession> _open(Host host, {Duration? connectTimeout}) async {
-    final identity = await _resolveIdentity(host);
-
-    final config = TransportConnectionConfig(
-      host: host.hostname,
-      port: host.port,
-      username: host.username,
-      password: identity.password,
-      privateKey: identity.privateKey,
-      passphrase: identity.passphrase,
-      connectTimeout: connectTimeout ?? Duration(seconds: host.connectTimeoutSeconds),
-    );
-
-    final factory = SshTransportFactory(onHostKeyPrompt: onHostKeyPrompt);
-    final session = await factory.create(config);
-
-    await _identities.markUsed(identity.id);
-    return session;
-  }
-
-  Future<Identity> _resolveIdentity(Host host) async {
-    final identityId = host.identityId;
-    if (identityId == null || identityId.isEmpty) {
-      throw MissingIdentityException(host);
-    }
-
-    final identity = await _identities.getById(identityId);
-    if (identity == null) {
-      throw MissingIdentityException(host);
-    }
-    return identity;
-  }
-
-  void _scheduleEviction(String hostId) {
-    Timer(idleTimeout, () async {
-      final pooled = _sessions[hostId];
-      if (pooled == null || pooled.inUse) return;
-      logInfo('Closing idle SSH session for host $hostId');
-      await _dispose(hostId);
-    });
-  }
-
-  Future<void> _dispose(String hostId) async {
-    final pooled = _sessions.remove(hostId);
-    if (pooled == null) return;
-    try {
-      await pooled.session.disconnect();
-    } catch (e) {
-      logWarning('Error closing session for host $hostId: $e');
-    }
-  }
-
-  Future<void> disconnect(String hostId) => _dispose(hostId);
-
-  Future<void> disconnectAll() async {
-    final ids = _sessions.keys.toList();
-    for (final id in ids) {
-      await _dispose(id);
-    }
-  }
-}
-
-/// Thrown when a host has no usable credential attached.
-///
-/// This was the app's most consequential silent failure: `_getSession`
-/// returned null and every host simply showed as offline, with nothing
-/// pointing at the actual cause.
-class MissingIdentityException implements Exception {
-  const MissingIdentityException(this.host);
-
-  final Host host;
-
-  @override
-  String toString() =>
-      'No credential is attached to ${host.name}. Open the host and choose an '
-      'identity from the vault.';
-}
-
-class _PooledSession {
-  _PooledSession(this.session, {required this.onIdle});
-
-  final TransportSession session;
-  final void Function() onIdle;
-
-  int _borrowers = 0;
-
-  bool get inUse => _borrowers > 0;
-
-  void retain() => _borrowers++;
-
-  void release() {
-    if (_borrowers > 0) _borrowers--;
-    if (_borrowers == 0) onIdle();
-  }
+  Future<void> disconnectAll() => pool.disposeAll();
 }

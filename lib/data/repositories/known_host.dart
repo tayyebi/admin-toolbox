@@ -1,5 +1,3 @@
-import '../../core/utils/json_codec.dart';
-
 class KnownHost {
   const KnownHost({
     required this.id,

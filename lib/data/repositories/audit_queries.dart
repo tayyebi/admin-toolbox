@@ -7,6 +7,30 @@ import '../models/audit_entry.dart';
 import 'audit_repository.dart';
 
 extension AuditQueries on AuditRepository {
+  Future<List<AuditEntry>> getAll({int limit = 200, String? hostId, String? entityType}) async {
+    final db = await AppDatabase.instance.database;
+
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (hostId != null) {
+      clauses.add('host_id = ?');
+      args.add(hostId);
+    }
+    if (entityType != null) {
+      clauses.add('entity_type = ?');
+      args.add(entityType);
+    }
+
+    final maps = await db.query(
+      'audit_log',
+      where: clauses.isEmpty ? null : clauses.join(' AND '),
+      whereArgs: args.isEmpty ? null : args,
+      orderBy: 'timestamp DESC',
+      limit: limit,
+    );
+    return maps.map(AuditEntry.fromMap).toList();
+  }
+
   Future<List<AuditEntry>> search(String query, {int limit = 200}) async {
     final db = await AppDatabase.instance.database;
     final pattern = '%$query%';

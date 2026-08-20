@@ -3,6 +3,10 @@ import 'package:uuid/uuid.dart';
 import '../../core/database/database.dart';
 import '../models/host.dart';
 
+export 'host_counts.dart';
+export 'host_state.dart';
+
+
 class HostRepository {
   final _uuid = const Uuid();
 
@@ -92,66 +96,5 @@ class HostRepository {
       batch.delete('hosts', where: 'id = ?', whereArgs: [id]);
     }
     await batch.commit(noResult: true);
-  }
-
-  Future<void> updateStatus(String id, String status) async {
-    final db = await AppDatabase.instance.database;
-    await db.update(
-      'hosts',
-      {
-        'status': status,
-        'last_seen': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<void> toggleFavorite(String id) async {
-    final db = await AppDatabase.instance.database;
-    final host = await getById(id);
-    if (host != null) {
-      await db.update(
-        'hosts',
-        {'favorite': host.favorite ? 0 : 1, 'updated_at': DateTime.now().toIso8601String()},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    }
-  }
-
-  /// A paused host is skipped by the background monitoring loop, but the
-  /// status it was last seen at is kept until the next real connection.
-  Future<void> toggleMonitoringPaused(String id) async {
-    final db = await AppDatabase.instance.database;
-    final host = await getById(id);
-    if (host != null) {
-      await db.update(
-        'hosts',
-        {
-          'monitoring_paused': host.monitoringPaused ? 0 : 1,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    }
-  }
-
-  Future<Map<String, int>> getStatusCounts() async {
-    final db = await AppDatabase.instance.database;
-    final result = await db.rawQuery('SELECT status, COUNT(*) as count FROM hosts GROUP BY status');
-    final counts = <String, int>{};
-    for (final row in result) {
-      counts[row['status'] as String] = row['count'] as int;
-    }
-    return counts;
-  }
-
-  Future<int> getCount() async {
-    final db = await AppDatabase.instance.database;
-    final result = await db.rawQuery('SELECT COUNT(*) as count FROM hosts');
-    return Sqflite.firstIntValue(result) ?? 0;
   }
 }

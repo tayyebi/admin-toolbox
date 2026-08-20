@@ -2,66 +2,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database/database.dart';
+import 'host_key_check.dart';
+import 'known_host.dart';
 
-/// A server host key the user has accepted.
-class KnownHost {
-  const KnownHost({
-    required this.id,
-    required this.hostname,
-    required this.port,
-    required this.keyType,
-    required this.fingerprint,
-    required this.firstSeen,
-    required this.lastSeen,
-  });
-
-  final String id;
-  final String hostname;
-  final int port;
-  final String keyType;
-  final String fingerprint;
-  final DateTime firstSeen;
-  final DateTime lastSeen;
-
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'hostname': hostname,
-        'port': port,
-        'key_type': keyType,
-        'fingerprint': fingerprint,
-        'first_seen': firstSeen.toIso8601String(),
-        'last_seen': lastSeen.toIso8601String(),
-      };
-
-  factory KnownHost.fromMap(Map<String, dynamic> map) => KnownHost(
-        id: map['id'] as String,
-        hostname: map['hostname'] as String,
-        port: map['port'] as int,
-        keyType: map['key_type'] as String,
-        fingerprint: map['fingerprint'] as String,
-        firstSeen: DateTime.parse(map['first_seen'] as String),
-        lastSeen: DateTime.parse(map['last_seen'] as String),
-      );
-}
-
-/// The outcome of checking a server's key against what we have pinned.
-enum HostKeyVerdict {
-  /// Never seen — the user must decide whether to trust it.
-  unknown,
-
-  /// Matches the pinned key.
-  trusted,
-
-  /// A *different* key than the one pinned. Either the server was rebuilt, or
-  /// something is intercepting the connection. Connections are refused.
-  mismatch,
-}
-
-class HostKeyCheck {
-  const HostKeyCheck(this.verdict, {this.pinned});
-  final HostKeyVerdict verdict;
-  final KnownHost? pinned;
-}
+export 'host_key_check.dart';
+export 'known_host.dart';
 
 class KnownHostRepository {
   final _uuid = const Uuid();

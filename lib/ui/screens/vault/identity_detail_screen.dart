@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../data/models/identity.dart';
+import '../../../data/repositories/identity_repository.dart';
 import '../../../providers/providers.dart';
 import '../../widgets/error_view.dart';
 

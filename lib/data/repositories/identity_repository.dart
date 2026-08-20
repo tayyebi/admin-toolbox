@@ -1,14 +1,19 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/crypto/encryption.dart';
 import '../../core/database/database.dart';
-import '../../core/utils/logger.dart';
 import '../models/identity.dart';
+import 'identity_secrets.dart';
+
+export 'identity_migration.dart';
+export 'identity_secrets.dart';
+export 'identity_usage.dart';
 
 class IdentityRepository {
   final _uuid = const Uuid();
-  final _encryption = EncryptionService.instance;
+
+  /// Public so the usage and migration extensions can reach it.
+  final secrets = const IdentitySecrets();
 
   /// Identities with secrets still sealed.
   ///
@@ -25,14 +30,14 @@ class IdentityRepository {
   Future<List<Identity>> getAll() async {
     final db = await AppDatabase.instance.database;
     final maps = await db.query('identities', orderBy: 'name ASC');
-    return Future.wait(maps.map(Identity.fromMap).map(_decryptSecrets));
+    return Future.wait(maps.map(Identity.fromMap).map(secrets.decrypt));
   }
 
   Future<Identity?> getById(String id) async {
     final db = await AppDatabase.instance.database;
     final maps = await db.query('identities', where: 'id = ?', whereArgs: [id], limit: 1);
     if (maps.isEmpty) return null;
-    return _decryptSecrets(Identity.fromMap(maps.first));
+    return secrets.decrypt(Identity.fromMap(maps.first));
   }
 
   Future<Identity?> getByIdRedacted(String id) async {
@@ -55,7 +60,7 @@ class IdentityRepository {
 
     await db.insert(
       'identities',
-      _encryptSecrets(record).toMap(),
+      secrets.encrypt(record).toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     return record;
@@ -66,7 +71,7 @@ class IdentityRepository {
     final record = identity.copyWith(updatedAt: DateTime.now(), cryptoVersion: 2);
     await db.update(
       'identities',
-      _encryptSecrets(record).toMap(),
+      secrets.encrypt(record).toMap(),
       where: 'id = ?',
       whereArgs: [record.id],
     );
@@ -85,99 +90,5 @@ class IdentityRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
-  }
-
-  /// How many hosts reference each identity, for the vault list and for
-  /// warning before a delete.
-  Future<Map<String, int>> getHostUsageCounts() async {
-    final db = await AppDatabase.instance.database;
-    final rows = await db.rawQuery(
-      'SELECT identity_id, COUNT(*) AS count FROM hosts '
-      'WHERE identity_id IS NOT NULL GROUP BY identity_id',
-    );
-    return {
-      for (final row in rows) row['identity_id'] as String: row['count'] as int,
-    };
-  }
-
-  Future<int> getHostUsageCount(String identityId) async {
-    final db = await AppDatabase.instance.database;
-    final rows = await db.rawQuery(
-      'SELECT COUNT(*) AS count FROM hosts WHERE identity_id = ?',
-      [identityId],
-    );
-    return Sqflite.firstIntValue(rows) ?? 0;
-  }
-
-  /// Rows still sealed with the v1 AES-CBC scheme.
-  Future<List<Identity>> getPendingMigration() async {
-    final db = await AppDatabase.instance.database;
-    final maps = await db.query('identities', where: 'crypto_version < 2');
-    return maps.map(Identity.fromMap).toList();
-  }
-
-  /// Rewrites a v1 row under the current scheme. [plaintext] must already have
-  /// been recovered by the migration pass.
-  Future<void> rewriteMigrated(Identity plaintext) async {
-    final db = await AppDatabase.instance.database;
-    final record = plaintext.copyWith(cryptoVersion: 2, updatedAt: DateTime.now());
-    await db.update(
-      'identities',
-      _encryptSecrets(record).toMap(),
-      where: 'id = ?',
-      whereArgs: [record.id],
-    );
-  }
-
-  Identity _encryptSecrets(Identity identity) {
-    return identity.copyWith(
-      password: _sealOrNull(identity.password),
-      privateKey: _sealOrNull(identity.privateKey),
-      passphrase: _sealOrNull(identity.passphrase),
-    );
-  }
-
-  Future<Identity> _decryptSecrets(Identity identity) async {
-    // A v1 row is readable only through the legacy path; the migration pass
-    // rewrites it, but a read may arrive first.
-    if (identity.needsMigration) {
-      return identity.copyWith(
-        password: await _openLegacyOrNull(identity.password),
-        privateKey: await _openLegacyOrNull(identity.privateKey),
-        passphrase: await _openLegacyOrNull(identity.passphrase),
-      );
-    }
-
-    return identity.copyWith(
-      password: _openOrNull(identity.password),
-      privateKey: _openOrNull(identity.privateKey),
-      passphrase: _openOrNull(identity.passphrase),
-    );
-  }
-
-  String? _sealOrNull(String? value) {
-    if (value == null || value.isEmpty) return null;
-    return _encryption.encryptValue(value);
-  }
-
-  /// Decryption failure propagates.
-  ///
-  /// The previous implementation caught the error and returned the ciphertext,
-  /// which meant a corrupt record was handed to `SSHClient` as a password —
-  /// a silent auth failure at best, and a base64 blob in a server's auth log
-  /// at worst. A broken credential must surface as an error.
-  String? _openOrNull(String? value) {
-    if (value == null || value.isEmpty) return null;
-    return _encryption.decryptValue(value);
-  }
-
-  Future<String?> _openLegacyOrNull(String? value) async {
-    if (value == null || value.isEmpty) return null;
-    final plaintext = await _encryption.legacy.decryptValue(value);
-    if (plaintext == null) {
-      logWarning('Legacy credential could not be decrypted; re-enter it in the vault');
-      throw const VaultDecryptException('legacy record is unreadable');
-    }
-    return plaintext;
   }
 }

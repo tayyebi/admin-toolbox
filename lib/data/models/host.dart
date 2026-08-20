@@ -1,5 +1,8 @@
 import '../../core/utils/json_codec.dart';
 
+export 'host_codec.dart';
+export 'host_copy.dart';
+
 class Host {
   final String id;
   final String name;
@@ -52,71 +55,6 @@ class Host {
     required this.createdAt,
     required this.updatedAt,
   });
-
-  Host copyWith({
-    String? id,
-    String? name,
-    String? hostname,
-    int? port,
-    String? username,
-    String? groupId,
-    String? identityId,
-    String? connectionType,
-    List<String>? tags,
-    String? notes,
-    bool? favorite,
-    Map<String, String>? metadata,
-    String? status,
-    DateTime? lastSeen,
-    bool? monitoringPaused,
-    int? connectTimeoutSeconds,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Host(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      hostname: hostname ?? this.hostname,
-      port: port ?? this.port,
-      username: username ?? this.username,
-      groupId: groupId ?? this.groupId,
-      identityId: identityId ?? this.identityId,
-      connectionType: connectionType ?? this.connectionType,
-      tags: tags ?? this.tags,
-      notes: notes ?? this.notes,
-      favorite: favorite ?? this.favorite,
-      metadata: metadata ?? this.metadata,
-      status: status ?? this.status,
-      lastSeen: lastSeen ?? this.lastSeen,
-      monitoringPaused: monitoringPaused ?? this.monitoringPaused,
-      connectTimeoutSeconds: connectTimeoutSeconds ?? this.connectTimeoutSeconds,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'hostname': hostname,
-      'port': port,
-      'username': username,
-      'group_id': groupId,
-      'identity_id': identityId,
-      'connection_type': connectionType,
-      'tags': encodeStringList(tags),
-      'notes': notes,
-      'favorite': favorite ? 1 : 0,
-      'metadata': encodeStringMap(metadata),
-      'status': status,
-      'last_seen': lastSeen?.toIso8601String(),
-      'monitoring_paused': monitoringPaused ? 1 : 0,
-      'connect_timeout_seconds': connectTimeoutSeconds,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-    };
-  }
 
   factory Host.fromMap(Map<String, dynamic> map) {
     return Host(

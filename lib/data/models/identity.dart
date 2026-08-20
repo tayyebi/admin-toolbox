@@ -1,31 +1,10 @@
 import '../../core/utils/json_codec.dart';
 
-/// How a host authenticates.
-enum IdentityType {
-  password,
-  sshKey;
+export 'identity_codec.dart';
+export 'identity_copy.dart';
+export 'identity_redacted.dart';
+export 'identity_type.dart';
 
-  static IdentityType parse(String? raw) {
-    switch (raw) {
-      case 'ssh_key':
-      case 'sshKey':
-        return IdentityType.sshKey;
-      default:
-        return IdentityType.password;
-    }
-  }
-
-  String get storageValue => this == IdentityType.sshKey ? 'ssh_key' : 'password';
-
-  String get label => this == IdentityType.sshKey ? 'SSH Key' : 'Password';
-}
-
-/// A credential in the vault.
-///
-/// [password], [privateKey] and [passphrase] hold plaintext only while an
-/// instance is in flight between the repository and the UI — at rest they are
-/// AES-GCM sealed. [publicKey] and [fingerprint] are deliberately *not*
-/// secret, so the vault list can render without decrypting every record.
 class Identity {
   const Identity({
     required this.id,
@@ -82,85 +61,6 @@ class Identity {
     final fp = fingerprint;
     if (fp == null || fp.length < 20) return fp ?? '';
     return '${fp.substring(0, 14)}…${fp.substring(fp.length - 6)}';
-  }
-
-  Identity copyWith({
-    String? id,
-    String? name,
-    IdentityType? type,
-    String? password,
-    String? privateKey,
-    String? passphrase,
-    String? certificate,
-    String? keyType,
-    String? publicKey,
-    String? fingerprint,
-    String? comment,
-    int? keyBits,
-    DateTime? lastUsedAt,
-    int? cryptoVersion,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Identity(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      type: type ?? this.type,
-      password: password ?? this.password,
-      privateKey: privateKey ?? this.privateKey,
-      passphrase: passphrase ?? this.passphrase,
-      certificate: certificate ?? this.certificate,
-      keyType: keyType ?? this.keyType,
-      publicKey: publicKey ?? this.publicKey,
-      fingerprint: fingerprint ?? this.fingerprint,
-      comment: comment ?? this.comment,
-      keyBits: keyBits ?? this.keyBits,
-      lastUsedAt: lastUsedAt ?? this.lastUsedAt,
-      cryptoVersion: cryptoVersion ?? this.cryptoVersion,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  /// Clears every secret field. Used when handing an identity to code that has
-  /// no business seeing the plaintext.
-  Identity redacted() {
-    return Identity(
-      id: id,
-      name: name,
-      type: type,
-      certificate: certificate,
-      keyType: keyType,
-      publicKey: publicKey,
-      fingerprint: fingerprint,
-      comment: comment,
-      keyBits: keyBits,
-      lastUsedAt: lastUsedAt,
-      cryptoVersion: cryptoVersion,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'type': type.storageValue,
-      'password': password,
-      'private_key': privateKey,
-      'passphrase': passphrase,
-      'certificate': certificate,
-      'key_type': keyType,
-      'public_key': publicKey,
-      'fingerprint': fingerprint,
-      'comment': comment,
-      'key_bits': keyBits,
-      'last_used_at': lastUsedAt?.toIso8601String(),
-      'crypto_version': cryptoVersion,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-    };
   }
 
   factory Identity.fromMap(Map<String, dynamic> map) {

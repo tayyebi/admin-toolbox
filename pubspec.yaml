@@ -1,7 +1,7 @@
 name: admin_toolbox
 description: Mobile-first Infrastructure Operations Platform for Linux server administration.
 publish_to: 'none'
-version: 1.3.0
+version: 1.4.0
 
 environment:
   sdk: ^3.2.0

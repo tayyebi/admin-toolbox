@@ -1,3 +1,4 @@
+import '../../data/models/identity.dart';
 import '../../data/repositories/identity_repository.dart';
 import '../utils/logger.dart';
 import 'encryption.dart';

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../core/utils/logger.dart';
 import '../models/host.dart';
 import 'connection_pool.dart';
 import 'host_status_reporter.dart';
@@ -42,15 +43,18 @@ class ConnectionManager {
     if (existing != null) {
       if (existing.session.isConnected) {
         existing.retain();
+        logDebug('Reusing pooled SSH session for ${host.hostname}');
         return existing.session;
       }
       // Dead socket: drop it and reconnect below.
+      logInfo('Pooled session for ${host.hostname} was dead; reconnecting');
       await pool.dispose(host.id);
     }
 
     // Collapse concurrent requests for the same host into one handshake.
     final inFlight = _connecting[host.id];
     if (inFlight != null) {
+      logDebug('Connection to ${host.hostname} already in progress; waiting for it');
       final session = await inFlight;
       pool[host.id]?.retain();
       return session;

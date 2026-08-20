@@ -1,3 +1,4 @@
+import '../../core/utils/logger.dart';
 import '../models/host.dart';
 import '../models/identity.dart';
 import '../repositories/identity_repository.dart';
@@ -37,15 +38,22 @@ class SessionOpener {
     );
 
     await _identities.markUsed(identity.id);
+    logInfo('Opened session for ${host.hostname} using identity "${identity.name}"');
     return session;
   }
 
   Future<Identity> _resolveIdentity(Host host) async {
     final identityId = host.identityId;
-    if (identityId == null || identityId.isEmpty) throw MissingIdentityException(host);
+    if (identityId == null || identityId.isEmpty) {
+      logWarning('No credential attached to host ${host.hostname} (${host.id})');
+      throw MissingIdentityException(host);
+    }
 
     final identity = await _identities.getById(identityId);
-    if (identity == null) throw MissingIdentityException(host);
+    if (identity == null) {
+      logWarning('Host ${host.hostname} references identity $identityId, which no longer exists');
+      throw MissingIdentityException(host);
+    }
     return identity;
   }
 }

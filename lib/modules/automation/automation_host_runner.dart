@@ -1,3 +1,4 @@
+import '../../core/utils/logger.dart';
 import '../../data/models/automation.dart';
 import '../../data/models/host.dart';
 import '../../data/transport/connection_manager.dart';
@@ -22,11 +23,15 @@ class AutomationHostRunner {
     required CancellationToken token,
   }) async* {
     final session = await _connections.acquire(host);
+    logInfo('Running automation "${automation.name}" on ${host.hostname}'
+        ' (${automation.steps.length} steps)');
 
     try {
       for (var index = 0; index < automation.steps.length; index++) {
         if (token.isCancelled) {
           result.error = 'Cancelled';
+          logInfo('Automation "${automation.name}" cancelled on ${host.hostname}'
+              ' before step ${index + 1}');
           return;
         }
 
@@ -52,10 +57,13 @@ class AutomationHostRunner {
 
         final passed = output.exitCode == step.expectedExitCode && !output.timedOut;
         stepResult.outcome = passed ? StepOutcome.succeeded : StepOutcome.failed;
+        logInfo('Step ${index + 1}/${automation.steps.length} on ${host.hostname}: '
+            '${passed ? 'succeeded' : 'failed'} (exit ${output.exitCode})');
         yield null;
 
         if (!passed && !step.continueOnFailure) {
           result.error = 'Step ${index + 1} failed with exit code ${output.exitCode}';
+          logWarning('Step ${index + 1} failed on ${host.hostname}; rolling back');
           await for (final _ in rollback.run(automation, session, result, parameters, index)) {
             yield null;
           }
@@ -64,6 +72,7 @@ class AutomationHostRunner {
       }
 
       result.succeeded = true;
+      logInfo('Automation "${automation.name}" succeeded on ${host.hostname}');
     } finally {
       _connections.release(host);
     }

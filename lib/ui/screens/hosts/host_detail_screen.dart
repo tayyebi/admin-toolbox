@@ -397,8 +397,7 @@ class _ActionsState extends ConsumerState<_Actions> {
     setState(() => _pinging = true);
     final host = widget.host;
     final stopwatch = Stopwatch()..start();
-    String message;
-    Color color;
+    bool reachable;
     try {
       final socket = await Socket.connect(
         host.hostname,
@@ -407,14 +406,18 @@ class _ActionsState extends ConsumerState<_Actions> {
       );
       socket.destroy();
       stopwatch.stop();
-      message = '${host.name} is reachable (${stopwatch.elapsedMilliseconds} ms)';
-      color = context.colors.success;
+      reachable = true;
     } catch (_) {
-      message = '${host.name} is unreachable';
-      color = context.colors.danger;
+      reachable = false;
     }
+
     if (!mounted) return;
     setState(() => _pinging = false);
+
+    final message = reachable
+        ? '${host.name} is reachable (${stopwatch.elapsedMilliseconds} ms)'
+        : '${host.name} is unreachable';
+    final color = reachable ? context.colors.success : context.colors.danger;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: color),
     );

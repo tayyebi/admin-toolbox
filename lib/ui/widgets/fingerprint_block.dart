@@ -5,6 +5,7 @@ import '../../core/theme/app_typography.dart';
 
 class FingerprintBlock extends StatelessWidget {
   const FingerprintBlock({
+    super.key,
     required this.label,
     required this.value,
     required this.color,

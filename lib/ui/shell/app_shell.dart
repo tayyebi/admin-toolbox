@@ -8,8 +8,8 @@ import '../../core/security/app_lock_controller.dart';
 import '../../core/security/secure_display.dart';
 import '../../core/settings/app_settings.dart';
 import '../../providers/providers.dart';
-import 'shell_destinations.dart';
 import '../routes.dart';
+import 'shell_destinations.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});

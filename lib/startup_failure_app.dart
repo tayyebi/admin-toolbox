@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 
 class StartupFailureApp extends StatelessWidget {
-  const StartupFailureApp({required this.error});
+  const StartupFailureApp({required this.error, super.key});
 
   final Object error;
 

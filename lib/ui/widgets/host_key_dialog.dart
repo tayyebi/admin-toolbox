@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 import '../../data/transport/ssh_client.dart';
 import 'fingerprint_block.dart';
 import 'host_key_explanation.dart';
@@ -12,7 +11,7 @@ export 'show_host_key_prompt.dart';
 ///
 
 class HostKeyDialog extends StatefulWidget {
-  const HostKeyDialog({required this.prompt});
+  const HostKeyDialog({required this.prompt, super.key});
 
   final HostKeyPrompt prompt;
 

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/identity.dart';
+import '../data/repositories/identity_repository.dart';
 import '../data/repositories/known_host_repository.dart';
 import 'repository_providers.dart';
 

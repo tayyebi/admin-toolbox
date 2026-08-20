@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class RouteNotFound extends StatelessWidget {
-  const RouteNotFound({required this.location});
+  const RouteNotFound({required this.location, super.key});
 
   final String location;
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,7 +77,7 @@ class MoreScreen extends ConsumerWidget {
                   await ref
                       .read(auditRepositoryProvider)
                       .log(action: 'view_app_logs', entityType: 'app_log');
-                  if (context.mounted) context.push('/logs');
+                  if (context.mounted) unawaited(context.push('/logs'));
                 },
               ),
               _Entry(

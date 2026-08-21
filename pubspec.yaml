@@ -1,7 +1,7 @@
 name: admin_toolbox
 description: Mobile-first Infrastructure Operations Platform for Linux server administration.
 publish_to: 'none'
-version: 1.4.0
+version: 1.4.1
 
 environment:
   sdk: ^3.2.0
@@ -29,15 +29,20 @@ dependencies:
 
   # Remote access
   #
-  # Held below 2.12 on purpose. What dartssh2 passes to `onVerifyHostKey`
-  # changed in 2.14 — the raw MD5 digest of the host key became the UTF-8 bytes
-  # of an OpenSSH `SHA256:…` string — so moving up rewrites every fingerprint
-  # this app has pinned and shows the user a host key MISMATCH for servers that
-  # never changed. Resolution here is also steered by the Flutter SDK's pinned
-  # `meta` (3.27.4 pins 1.15.0, which already excludes 2.12+), so an open
-  # constraint would make the format shift silently on an SDK bump. Raise this
-  # together with a known_hosts migration, not on its own.
-  dartssh2: '>=2.10.0 <2.12.0'
+  # Held below 2.18 on purpose. What dartssh2 passes to `onVerifyHostKey`
+  # changed there — the raw 16-byte MD5 digest of the host key became the UTF-8
+  # bytes of an OpenSSH `SHA256:…` string — so crossing that line rewrites
+  # every fingerprint this app has pinned and shows the user a host key
+  # MISMATCH for servers that never changed. Raise it together with a
+  # known_hosts migration, not on its own.
+  #
+  # Where inside the range it lands is decided elsewhere: `pointycastle ^3.9.1`
+  # below excludes 2.15+ (they want ^4.0.0), and the Flutter SDK's pinned
+  # `meta` narrows it further — 3.27.4 pins meta 1.15.0, which excludes 2.12+
+  # (they want ^1.16.0), so builds today resolve to 2.11.0. An SDK bump moves
+  # that without a line of this file changing, which is why the reader in
+  # `ssh_fingerprint.dart` recognises the format instead of assuming it.
+  dartssh2: '>=2.10.0 <2.18.0'
   xterm: ^4.0.0
 
   # UI

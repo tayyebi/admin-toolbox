@@ -35,21 +35,23 @@ class SshHostKeyVerifier {
   /// Set when the key was refused rather than merely unverifiable.
   HostKeyRejectedException? get rejection => _decision.rejection;
 
-  /// Nothing may be thrown out of here. dartssh2 2.11 casts whatever escapes
-  /// this callback to `SSHError`, and when that cast fails the handshake is
-  /// neither completed nor failed — the connection then hangs until the
-  /// caller's timeout, blaming the network for a local fault.
+  /// Nothing may be thrown out of here. dartssh2 2.10.0 – 2.19.0 passes
+  /// whatever escapes this callback to `closeWithError(SSHError)`, and when
+  /// that cast fails the handshake is neither completed nor failed — the
+  /// connection then hangs until the caller's timeout, blaming the network for
+  /// a local fault. Returning false is always survivable; throwing is not.
   Future<bool> verify(String keyType, Uint8List fingerprintBytes) async {
     try {
-      return await _check(keyType, SshFingerprint.format(fingerprintBytes));
+      final dialect = SshFingerprint.dialectFor(fingerprintBytes);
+      return await _check(keyType, dialect.render(fingerprintBytes), dialect.name);
     } catch (e) {
       onLog?.call('Host key check failed: $e');
       return false;
     }
   }
 
-  Future<bool> _check(String keyType, String fingerprint) async {
-    onLog?.call('Server presented $keyType host key ($fingerprint)');
+  Future<bool> _check(String keyType, String fingerprint, String dialect) async {
+    onLog?.call('Server presented $keyType host key ($fingerprint), read as $dialect');
 
     final check = await _knownHosts.verify(hostname, port, fingerprint);
 

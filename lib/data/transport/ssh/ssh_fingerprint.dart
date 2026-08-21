@@ -1,48 +1,42 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
-/// Renders whatever dartssh2 hands the host key callback as a stable string.
+import 'ssh_fingerprint_format.dart';
+import 'ssh_fingerprint_formats.dart';
+
+/// Picks the dialect that fits the bytes dartssh2 handed `onVerifyHostKey`.
 ///
-/// The bytes are not one format across versions: dartssh2 2.13 and earlier
-/// pass the raw 16-byte MD5 digest of the host key, 2.14 and later the UTF-8
-/// bytes of an OpenSSH-style `SHA256:…` string. This project resolves to the
-/// older form — every 2.x above 2.11 wants `meta ^1.16.0` or `pointycastle
-/// ^4.0.0`, and neither is available here — but the resolution moves with the
-/// Flutter SDK, so both forms are handled rather than assumed.
+/// What that argument holds depends on the resolved library version:
 ///
-/// Decoding a raw digest as UTF-8 throws, and dartssh2 2.11 casts anything
-/// thrown out of the callback to `SSHError` before reporting it. That cast
-/// fails, the resulting TypeError is lost to the zone, and the handshake is
-/// then never completed *or* failed — so the connection dies on the caller's
-/// timeout with nothing pointing at the host key check.
+/// | dartssh2        | fingerprint argument                          |
+/// | --------------- | --------------------------------------------- |
+/// | 2.10.0 – 2.17.0 | raw 16-byte MD5 digest of the host key         |
+/// | 2.18.0 – 3.x    | UTF-8 bytes of `SHA256:<base64, unpadded>`     |
+///
+/// Reading the older form as UTF-8 throws, and in 2.10.0 – 2.19.0 anything
+/// thrown out of the callback is passed to `closeWithError(SSHError)`. That
+/// cast fails, the TypeError is lost to the zone, and the handshake is then
+/// neither completed nor failed — every connection dies on the caller's
+/// timeout, pointing at the network instead of at this decode. 2.20.0 awaits
+/// the callback instead, which is why the fault is version-specific.
+///
+/// Which of those versions is in the build is not settled here: `pointycastle`
+/// and the Flutter SDK's pinned `meta` both narrow it (see `pubspec.yaml`). So
+/// the format is read from the bytes, and every branch of that decision is a
+/// [SshFingerprintFormat] rather than a condition inline.
 abstract final class SshFingerprint {
-  static String format(Uint8List bytes) {
-    final formatted = _alreadyFormatted(bytes);
-    if (formatted != null) return formatted;
+  /// Most specific first. The last entry matches anything, so selection always
+  /// succeeds — an unknown dialect must never be able to throw from here.
+  static const dialects = <SshFingerprintFormat>[
+    PreformattedFingerprint(),
+    Md5DigestFingerprint(),
+    Sha256DigestFingerprint(),
+    OpaqueDigestFingerprint(),
+  ];
 
-    // A raw digest. SHA-256 is rendered the way OpenSSH and newer dartssh2 do,
-    // base64 without padding; anything else as hex, how MD5 keys are read.
-    if (bytes.length == 32) {
-      return 'SHA256:${base64.encode(bytes).replaceAll('=', '')}';
-    }
-    return 'MD5:${_hex(bytes)}';
-  }
+  static SshFingerprintFormat dialectFor(Uint8List bytes) => dialects.firstWhere(
+        (dialect) => dialect.matches(bytes),
+        orElse: () => const OpaqueDigestFingerprint(),
+      );
 
-  /// A digest that happens to decode as UTF-8 must not be mistaken for a
-  /// fingerprint newer dartssh2 already formatted, so the algorithm prefix has
-  /// to be there — that is what makes the two cases tellable apart.
-  static String? _alreadyFormatted(Uint8List bytes) {
-    final String text;
-    try {
-      text = utf8.decode(bytes);
-    } on FormatException {
-      return null;
-    }
-
-    const prefixes = ['SHA256:', 'SHA1:', 'MD5:'];
-    return prefixes.any(text.startsWith) ? text : null;
-  }
-
-  static String _hex(Uint8List bytes) =>
-      bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(':');
+  static String format(Uint8List bytes) => dialectFor(bytes).render(bytes);
 }

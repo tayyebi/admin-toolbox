@@ -28,7 +28,16 @@ dependencies:
   local_auth: ^2.2.0
 
   # Remote access
-  dartssh2: ^2.10.0
+  #
+  # Held below 2.12 on purpose. What dartssh2 passes to `onVerifyHostKey`
+  # changed in 2.14 — the raw MD5 digest of the host key became the UTF-8 bytes
+  # of an OpenSSH `SHA256:…` string — so moving up rewrites every fingerprint
+  # this app has pinned and shows the user a host key MISMATCH for servers that
+  # never changed. Resolution here is also steered by the Flutter SDK's pinned
+  # `meta` (3.27.4 pins 1.15.0, which already excludes 2.12+), so an open
+  # constraint would make the format shift silently on an SDK bump. Raise this
+  # together with a known_hosts migration, not on its own.
+  dartssh2: '>=2.10.0 <2.12.0'
   xterm: ^4.0.0
 
   # UI
